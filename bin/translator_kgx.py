@@ -190,15 +190,18 @@ def validate(config, inputs, input_type):
 @click.option('-a', '--address', type=str, required=True)
 @click.option('-u', '--username', type=str)
 @click.option('-p', '--password', type=str)
+@click.option('--host', type=str)
+@click.option('--port', type=str)
+@click.option('--scheme', type=str)
 @click.option('--start', type=int, default=0)
 @click.option('--end', type=int)
 @click.option('-o', '--output', type=click.Path(exists=False), required=True)
 @pass_config
-def neo4j_download(config, address, username, password, output, output_type, labels, properties, directed, start, end):
+def neo4j_download(config, address, username, password, host, port, scheme, output, output_type, labels, properties, directed, start, end):
     if not is_writable(output):
         error(f'Cannot write to {output}')
 
-    t = make_neo4j_transformer(address, username, password)
+    t = make_neo4j_transformer(address, host, port, scheme, username, password)
 
     set_transformer_filters(transformer=t, labels=labels, properties=properties)
 
@@ -219,7 +222,7 @@ def set_transformer_filters(transformer:Transformer, labels:list, properties:lis
         target = '{}_property'.format(location)
         transformer.set_filter(target=target, value=(property_name, property_value))
 
-def make_neo4j_transformer(address, username, password):
+def make_neo4j_transformer(address, host, port, scheme, username, password):
     o = urlparse(address)
 
     if o.password is None and password is None:
@@ -232,9 +235,24 @@ def make_neo4j_transformer(address, username, password):
     elif username is None:
         username = o.username
 
+    if o.port is None and port is None:
+        error('Could not extract port from the address, please set port argument')
+    elif port is None:
+        port = o.port
+
+    if o.hostname is None and host is None:
+        error('Could not extract host from the address, please set host argument')
+    elif host is None:
+        host = o.hostname
+
+    if o.scheme is None and host is None:
+        error('Could not extract host from the address, please set host argument')
+    elif scheme is None:
+        scheme = o.scheme
+
     return kgx.NeoTransformer(
-        host=o.hostname,
-        ports={o.scheme : o.port},
+        host=host,
+        ports={scheme : port},
         username=username,
         password=password
     )
@@ -245,12 +263,15 @@ def make_neo4j_transformer(address, username, password):
 @click.option('-a', '--address', type=str, required=True)
 @click.option('-u', '--username', type=str)
 @click.option('-p', '--password', type=str)
+@click.option('--host', type=str)
+@click.option('--port', type=str)
+@click.option('--scheme', type=str)
 @click.argument('inputs', nargs=-1, type=click.Path(exists=False), required=True)
 @pass_config
-def neo4j_upload(config, address, username, password, inputs, input_type, use_unwind):
+def neo4j_upload(config, address, host, port, scheme, username, password, inputs, input_type, use_unwind):
     t = load_transformer(inputs, input_type)
 
-    neo_transformer = make_neo4j_transformer(address, username, password)
+    neo_transformer = make_neo4j_transformer(address, host, port, scheme, username, password)
     neo_transformer.graph = t.graph
 
     if use_unwind:
