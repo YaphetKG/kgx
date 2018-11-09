@@ -240,15 +240,15 @@ def make_neo4j_transformer(address, host, port, scheme, username, password):
     elif port is None:
         port = o.port
 
-    if o.hostname is None and host is None:
-        error('Could not extract host from the address, please set host argument')
-    elif host is None:
-        host = o.hostname
-
     if o.scheme is None and host is None:
         error('Could not extract host from the address, please set host argument')
     elif scheme is None:
         scheme = o.scheme
+
+    if o.hostname is None and host is None:
+        error('Could not extract host from the address, please set host argument')
+    elif host is None:
+        host = o.hostname + o.path
 
     return kgx.NeoTransformer(
         host=host,
