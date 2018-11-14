@@ -16,6 +16,14 @@ from neo4jrestclient.client import GraphDatabase as http_gdb
 neo4j_log = logging.getLogger("neo4j.bolt")
 neo4j_log.setLevel(logging.WARNING)
 
+def partitions(list, partition_size=1000):
+    """
+    Returns the start and end indicies, and the partition
+    """
+    for start in range(0, len(list), partition_size):
+        end = min(start + partition_size, len(list))
+        yield (start, end), list[start:end]
+
 class NeoTransformer(Transformer):
     """
 
@@ -358,46 +366,61 @@ class NeoTransformer(Transformer):
         """
         Save all nodes into neo4j using the UNWIND cypher clause
         """
+        size = sum(len(v) for v in nodes_by_category.values())
 
-        for category in nodes_by_category.keys():
-            self.populate_missing_properties(nodes_by_category[category], property_names)
-            query = self.generate_unwind_node_query(category, property_names)
-            with self.bolt_driver.session() as session:
-                session.run(query, nodes=nodes_by_category[category])
+        with click.progressbar(length=size) as bar:
+            for category in nodes_by_category.keys():
+                bar.label = 'saving nodes with category {}'.format(category)
+
+                self.populate_missing_properties(nodes_by_category[category], property_names)
+                query = self.generate_unwind_node_query(category, property_names)
+
+                nodes = nodes_by_category[category]
+                for (start, end), subset in partitions(nodes):
+                    # logging.info("category {} edges subset: {}-{}".format(category, start, end))
+                    with self.bolt_driver.session() as session:
+                        session.run(query, nodes=subset)
+
+                    bar.update(end - start)
 
     def save_edge_unwind(self, edges_by_relationship_type, property_names):
         """
         Save all edges into neo4j using the UNWIND cypher clause
         """
+        size = sum(len(v) for v in edges_by_relationship_type.values())
 
-        for predicate in edges_by_relationship_type:
-            self.populate_missing_properties(edges_by_relationship_type[predicate], property_names)
-            query = self.generate_unwind_edge_query(predicate, property_names)
-            edges = edges_by_relationship_type[predicate]
-            for i in range(0, len(edges), 1000):
-                end = i + 1000
-                subset = edges[i:end]
-                logging.info("edges subset: {}-{}".format(i, end))
-                time_start = self.current_time_in_millis()
-                with self.bolt_driver.session() as session:
-                    session.run(query, relationship=predicate, edges=subset)
-                time_end = self.current_time_in_millis()
-                logging.debug("time taken to load edges: {} ms".format(time_end - time_start))
+        with click.progressbar(length=size, label='saving edges') as bar:
+            for predicate in edges_by_relationship_type:
+                bar.label = "saving edges with predicate {}".format(predicate)
+                self.populate_missing_properties(edges_by_relationship_type[predicate], property_names)
+                query = self.generate_unwind_edge_query(predicate, property_names)
+                edges = edges_by_relationship_type[predicate]
+
+                for (start, end), subset in partitions(edges):
+                    # logging.info("predicate {} edges subset: {}-{}".format(predicate, start, end))
+                    with self.bolt_driver.session() as session:
+                        time_start = self.current_time_in_millis()
+                        session.run(query, relationship=predicate, edges=subset)
+                        time_end = self.current_time_in_millis()
+                        logging.debug("time taken to load edges: {} ms".format(time_end - time_start))
+
+                    bar.update(end - start)
 
     def generate_unwind_node_query(self, label, property_names):
         """
         Generate UNWIND cypher clause for a given label and property names (optional)
         """
-
-        properties_dict = {p : p for p in property_names if p not in ignore_list}
-
-        properties = ', '.join('n.{0}=node.{0}'.format(k) for k in properties_dict.keys() if k != 'id')
-
         query = """
         UNWIND $nodes AS node
-        MERGE (n:Node {{id: node.id}})
-        SET n:{label}, {properties}
-        """.format(label=label, properties=properties)
+        MERGE (n:Node {id: node.id})
+        """
+
+        if label is not None and label != '':
+            query += "\nSET n:{}".format(label)
+
+        if property_names is not None and property_names != []:
+            properties = ', '.join('n.{0}=node.{0}'.format(k) for k in property_names if k != 'id')
+            query += "\nSET {}".format(properties)
 
         query = self.clean_whitespace(query)
 
@@ -411,14 +434,15 @@ class NeoTransformer(Transformer):
         Generate UNWIND cypher clause for a given relationship
         """
         ignore_list = ['subject', 'predicate', 'object']
-        properties_dict = {p : "edge.{}".format(p) for p in property_names if p not in ignore_list}
+        properties_dict = {p : "edge.`{}`".format(p) for p in property_names if p not in ignore_list}
 
-        properties = ', '.join('r.{0}=edge.{0}'.format(k) for k in properties_dict.keys())
+        properties = ', '.join('r.`{0}`=edge.`{0}`'.format(k) for k in properties_dict.keys())
 
         query="""
         UNWIND $edges AS edge
-        MATCH (s:Node {{id: edge.subject}}), (o:Node {{id: edge.object}})
-        MERGE (s)-[r:{edge_label}]->(o)
+        MERGE (s {{id: edge.subject}})
+        MERGE (o {{id: edge.object}})
+        MERGE (s)-[r:`{edge_label}`]->(o)
         SET {properties}
         """.format(properties=properties, edge_label=relationship)
 
@@ -466,38 +490,47 @@ class NeoTransformer(Transformer):
         """
         Load from a nx graph to neo4j using the UNWIND cypher clause
         """
-
-        nodes_by_category = {}
-        node_properties = []
+        nodes_by_category = defaultdict(list)
+        node_property_names = []
         for n in self.graph.nodes():
             node = self.graph.node[n]
             if 'id' not in node:
-                continue
+                if isinstance(n, (str, int)):
+                    self.graph.node[n]['id'] = n
+                else:
+                    raise Exception('Cannot infer an ID for node: {}'.format(n))
 
-            category = ':'.join(node['category'])
-            if category not in nodes_by_category:
-                nodes_by_category[category] = [node]
-            else:
+            if 'category' in node:
+                category = ':'.join('`{}`'.format(c) for c in node['category'])
                 nodes_by_category[category].append(node)
+            else:
+                nodes_by_category[None].append(node)
 
-            node_properties += [x for x in node if x not in node_properties]
+            node_property_names += [x for x in node if x not in node_property_names]
 
-        edges_by_relationship_type = {}
-        edge_properties = []
-        for n, nbrs in self.graph.adjacency_iter():
+        edges_by_relationship_type = defaultdict(list)
+        edge_property_names = []
+
+        for n, nbrs in self.graph.adjacency():
             for nbr, eattr in nbrs.items():
                 for entry, adjitem in eattr.items():
-                    if adjitem['predicate'] not in edges_by_relationship_type:
-                        edges_by_relationship_type[adjitem['predicate']] = [adjitem]
+                    attr_dict = adjitem['attr_dict']
+
+                    if 'predicate' in attr_dict:
+                        predicate = attr_dict['predicate']
+                        if isinstance(predicate, list):
+                            predicate = '_or_'.join(predicate)
+                        edges_by_relationship_type[predicate].append(attr_dict)
                     else:
-                        edges_by_relationship_type[adjitem['predicate']].append(adjitem)
-                    edge_properties += [x for x in adjitem.keys() if x not in edge_properties]
+                        edges_by_relationship_type[None].append(attr_dict)
+
+                    edge_property_names += [x for x in attr_dict.keys() if x not in edge_property_names]
 
         with self.bolt_driver.session() as session:
             session.write_transaction(self.create_constraints, nodes_by_category.keys())
 
-        self.save_node_unwind(nodes_by_category, node_properties)
-        self.save_edge_unwind(edges_by_relationship_type, edge_properties)
+        self.save_node_unwind(nodes_by_category, node_property_names)
+        self.save_edge_unwind(edges_by_relationship_type, edge_property_names)
 
     def save(self):
         """
@@ -520,7 +553,7 @@ class NeoTransformer(Transformer):
                 if 'id' not in node_attributes:
                     node_attributes['id'] = node_id
                 session.write_transaction(self.save_node, node_attributes)
-            for n, nbrs in self.graph.adjacency_iter():
+            for n, nbrs in self.graph.adjacency():
                 for nbr, eattr in nbrs.items():
                     for entry, adjitem in eattr.items():
                         session.write_transaction(self.save_edge, adjitem)
@@ -635,7 +668,9 @@ class NeoTransformer(Transformer):
         label_set = set()
 
         for label in labels:
-            if ':' in label:
+            if label is None:
+                continue
+            elif ':' in label:
                 sub_labels = label.split(':')
                 for sublabel in sub_labels:
                     label_set.add(sublabel)

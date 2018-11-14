@@ -260,19 +260,31 @@ def make_neo4j_transformer(address, host, port, scheme, username, password):
 @cli.command(name='neo4j-upload')
 @click.option('--input-type', type=click.Choice(get_file_types()))
 @click.option('--use-unwind', is_flag=True, help='Loads using UNWIND, which is quicker')
-@click.option('-a', '--address', type=str, required=True)
+@click.option('-a', '--address', type=str)
 @click.option('-u', '--username', type=str)
 @click.option('-p', '--password', type=str)
 @click.option('--host', type=str)
 @click.option('--port', type=str)
 @click.option('--scheme', type=str)
+@click.option('--edge-property', multiple=True, type=click.Tuple([str, str]), help='A property name and value that all edges will have')
+@click.option('--node-property', multiple=True, type=click.Tuple([str, str]), help='A property name and value that all nodes will have')
 @click.argument('inputs', nargs=-1, type=click.Path(exists=False), required=True)
 @pass_config
-def neo4j_upload(config, address, host, port, scheme, username, password, inputs, input_type, use_unwind):
+def neo4j_upload(config, address, host, port, scheme, username, password, inputs, input_type, use_unwind, node_property, edge_property):
     t = load_transformer(inputs, input_type)
 
     neo_transformer = make_neo4j_transformer(address, host, port, scheme, username, password)
     neo_transformer.graph = t.graph
+
+    if node_property is not None:
+        for name, value in node_property:
+            for n in neo_transformer.graph.nodes():
+                neo_transformer.graph.node[n][name] = value
+
+    if edge_property is not None:
+        for name, value in edge_property:
+            for subject_node, object_node, edge_dict in neo_transformer.graph.edges.data():
+                edge_dict['attr_dict'][name] = value
 
     if use_unwind:
         neo_transformer.save_with_unwind()
