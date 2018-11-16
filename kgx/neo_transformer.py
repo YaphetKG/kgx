@@ -24,6 +24,15 @@ def partitions(list, partition_size=1000):
         end = min(start + partition_size, len(list))
         yield (start, end), list[start:end]
 
+def make_hashable_collection(l:Union[list, tuple, set]) -> tuple:
+    """
+    Only tuples are hashable. We want to remove duplicates and sort the
+    collection before casting it to a tuple.
+    """
+    l = list(set(l))
+    l.sort()
+    return tuple(l)
+
 class NeoTransformer(Transformer):
     """
 
@@ -412,14 +421,17 @@ class NeoTransformer(Transformer):
         """
         query = """
         UNWIND $nodes AS node
-        MERGE (n:Node {id: node.id})
+        MERGE (n {id: node.id})
         """
+
+        if isinstance(label, (list, tuple, set)):
+            label = ':'.join("`{}`".format(i) for i in label)
 
         if label is not None and label != '':
             query += "\nSET n:{}".format(label)
 
         if property_names is not None and property_names != []:
-            properties = ', '.join('n.{0}=node.{0}'.format(k) for k in property_names if k != 'id')
+            properties = ', '.join('n.`{0}`=node.`{0}`'.format(k) for k in property_names if k != 'id')
             query += "\nSET {}".format(properties)
 
         query = self.clean_whitespace(query)
@@ -433,6 +445,13 @@ class NeoTransformer(Transformer):
         """
         Generate UNWIND cypher clause for a given relationship
         """
+        if isinstance(relationship, (list, set, tuple)):
+            edge_label = '&'.join(relationship)
+        elif isinstance(relationship, str):
+            edge_label = relationship
+        else:
+            edge_label = str(relationship)
+
         ignore_list = ['subject', 'predicate', 'object']
         properties_dict = {p : "edge.`{}`".format(p) for p in property_names if p not in ignore_list}
 
@@ -444,7 +463,7 @@ class NeoTransformer(Transformer):
         MERGE (o {{id: edge.object}})
         MERGE (s)-[r:`{edge_label}`]->(o)
         SET {properties}
-        """.format(properties=properties, edge_label=relationship)
+        """.format(properties=properties, edge_label=edge_label)
 
         query = self.clean_whitespace(query)
 
@@ -501,7 +520,9 @@ class NeoTransformer(Transformer):
                     raise Exception('Cannot infer an ID for node: {}'.format(n))
 
             if 'category' in node:
-                category = ':'.join('`{}`'.format(c) for c in node['category'])
+                category = node['category']
+                if isinstance(category, (list, set, tuple)):
+                    category = make_hashable_collection(category)
                 nodes_by_category[category].append(node)
             else:
                 nodes_by_category[None].append(node)
@@ -511,15 +532,21 @@ class NeoTransformer(Transformer):
         edges_by_relationship_type = defaultdict(list)
         edge_property_names = []
 
-        for n, nbrs in self.graph.adjacency():
-            for nbr, eattr in nbrs.items():
+        for node, neighbors in self.graph.adjacency():
+            for neighbor, eattr in neighbors.items():
                 for entry, adjitem in eattr.items():
                     attr_dict = adjitem['attr_dict']
 
+                    if 'subject' not in attr_dict:
+                        attr_dict['subject'] = node
+
+                    if 'object' not in attr_dict:
+                        attr_dict['object'] = neighbor
+
                     if 'predicate' in attr_dict:
                         predicate = attr_dict['predicate']
-                        if isinstance(predicate, list):
-                            predicate = '_or_'.join(predicate)
+                        if isinstance(predicate, (list, set, tuple)):
+                            predicate = make_hashable_collection(predicate)
                         edges_by_relationship_type[predicate].append(attr_dict)
                     else:
                         edges_by_relationship_type[None].append(attr_dict)
@@ -664,7 +691,7 @@ class NeoTransformer(Transformer):
         """
         Create a unique constraint on node 'id' for all labels
         """
-        query = "CREATE CONSTRAINT ON (n:{}) ASSERT n.id IS UNIQUE"
+        query = "CREATE CONSTRAINT ON (n:`{}`) ASSERT n.id IS UNIQUE"
         label_set = set()
 
         for label in labels:

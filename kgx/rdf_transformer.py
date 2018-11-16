@@ -24,6 +24,12 @@ mapping = {
 }
 rmapping = {y: x for x, y in mapping.items()}
 
+category_map = {
+    'SO:0001217' : ['gene', 'protein_coding_gene'],
+    'SO:0001263' : ['gene', 'ncRNA_gene'],
+    'SO:0000110' : ['sequence_feature'],
+}
+
 
 class RdfTransformer(Transformer):
     """
@@ -47,6 +53,9 @@ class RdfTransformer(Transformer):
                 input_format = 'turtle'
             elif filename.endswith(".rdf"):
                 input_format='xml'
+            else:
+                raise Exception('Unrecognized RDF format {}'.format(input_format))
+
         rdfgraph.parse(filename, format=input_format)
         logging.info("Parsed : {}".format(filename))
 
@@ -82,6 +91,18 @@ class RdfTransformer(Transformer):
                     if p in rmapping:
                         p = rmapping[p]
                     npmap[p] = str(o)
+                if p == rdflib.RDFS.subClassOf:
+                    if 'category' not in npmap:
+                        npmap['category'] = []
+
+                    category_curie = self.curie(str(o))
+
+                    if category_curie in category_map:
+                        npmap['category'] += category_map[category_curie]
+                    else:
+                        npmap['category'] += [category_curie]
+
+
             G.add_node(nid, **npmap)
 
     def load_edges(self, rg: rdflib.Graph):
@@ -136,7 +157,9 @@ class ObanRdfTransformer(RdfTransformer):
             obj['provided_by'] = self.graph_metadata['provided_by']
             for each_s in s:
                 for each_o in o:
-                    self.graph.add_edge(each_o, each_s, attr_dict=obj)
+                    self.graph.add_edge(each_s, each_o, attr_dict=obj)
+                    self.graph.node[each_o]['iri'] = expand_uri(each_o)
+                    self.graph.node[each_s]['iri'] = expand_uri(each_s)
 
     def curie(self, uri: UriString) -> str:
         curies = contract_uri(str(uri))
@@ -239,9 +262,10 @@ class RdfOwlTransformer(RdfTransformer):
     def load_edges(self, rg: rdflib.Graph):
         """
         """
+
         for s,p,o in rg.triples( (None,RDFS.subClassOf,None) ):
             if isinstance(s, rdflib.term.BNode):
-                next
+                continue
             pred = None
             parent = None
             obj = {}
