@@ -283,8 +283,8 @@ def neo4j_upload(config, address, host, port, scheme, username, password, inputs
 
     if edge_property is not None:
         for name, value in edge_property:
-            for subject_node, object_node, edge_dict in neo_transformer.graph.edges.data():
-                edge_dict['attr_dict'][name] = value
+            for subject_node, object_node, edge_attr_dict in neo_transformer.graph.edges.data():
+                edge_attr_dict[name] = value
 
     if use_unwind:
         neo_transformer.save_with_unwind()

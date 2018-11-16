@@ -409,7 +409,7 @@ class NeoTransformer(Transformer):
                     # logging.info("predicate {} edges subset: {}-{}".format(predicate, start, end))
                     with self.bolt_driver.session() as session:
                         time_start = self.current_time_in_millis()
-                        session.run(query, relationship=predicate, edges=subset)
+                        session.run(query, edges=subset)
                         time_end = self.current_time_in_millis()
                         logging.debug("time taken to load edges: {} ms".format(time_end - time_start))
 
@@ -534,8 +534,7 @@ class NeoTransformer(Transformer):
 
         for node, neighbors in self.graph.adjacency():
             for neighbor, eattr in neighbors.items():
-                for entry, adjitem in eattr.items():
-                    attr_dict = adjitem['attr_dict']
+                for entry, attr_dict in eattr.items():
 
                     if 'subject' not in attr_dict:
                         attr_dict['subject'] = node
@@ -695,14 +694,13 @@ class NeoTransformer(Transformer):
         label_set = set()
 
         for label in labels:
-            if label is None:
-                continue
-            elif ':' in label:
-                sub_labels = label.split(':')
-                for sublabel in sub_labels:
-                    label_set.add(sublabel)
-            else:
+            if isinstance(label, (list, tuple, set)):
+                for l in label:
+                    label_set.add(l)
+            elif isinstance(label, str):
                 label_set.add(label)
+            else:
+                continue
 
         for label in label_set:
             tx.run(query.format(label))
