@@ -51,11 +51,18 @@ class RdfTransformer(Transformer):
         Parse a file into an graph, using rdflib
         """
         rdfgraph = rdflib.Graph()
+
+        guessed_format = rdflib.utils.guess_format(filename)
+        if guess_format is not None:
+            input_format = guessed_format
+
         if input_format is None:
             if filename.endswith(".ttl"):
                 input_format = 'turtle'
             elif filename.endswith(".rdf"):
-                input_format='xml'
+                input_format = 'xml'
+            elif filename.endswith(".owl"):
+                input_format = 'xml'
             else:
                 raise Exception('Unrecognized RDF format {}'.format(input_format))
 
