@@ -434,7 +434,7 @@ def load_transformer(input_paths:List[str], input_type:str=None) -> Transformer:
         input_types = [input_type for i in input_paths]
 
     t = None
-    for path, input_type for zip(input_paths, input_types):
+    for path, input_type in zip(input_paths, input_types):
         constructor = get_transformer_constructor(input_type)
 
         if t is None:
