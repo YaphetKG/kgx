@@ -23,7 +23,8 @@ mapping = {
     'type' : RDF.type,
     'comment': RDFS.comment,
     'name': RDFS.label,
-    'description' : URIRef('http://purl.org/dc/elements/1.1/description')
+    'description' : URIRef('http://purl.org/dc/elements/1.1/description'),
+    'has_evidence' : URIRef('http://purl.obolibrary.org/obo/RO_0002558'),
 }
 reverse_mapping = {y: x for x, y in mapping.items()}
 
@@ -141,34 +142,14 @@ class ObanRdfTransformer(RdfTransformer):
                 self.inv_cmap[v] = k
                 self.cmap[k] = v
 
-    def get_node_attr(self, networkx_node_id:str, rdf_node_iri:UriString):
-        if networkx_node_id not in self.graph.node:
-            for s,p,o in rg.triples((rdf_node_iri, None, None)):
-                if isinstance(o, rdflib.term.Literal):
-                    if p in reverse_mapping:
-                        p = reverse_mapping[p]
-                    attr_dict[p] = str(o)
-                if p == rdflib.RDFS.subClassOf:
-                    if 'category' not in attr_dict:
-                        attr_dict['category'] = []
-
-                    category_curie = self.curie(str(o))
-
-                    if category_curie in category_map:
-                        attr_dict['category'] += category_map[category_curie]
-                    else:
-                        attr_dict['category'] += [category_curie]
-            return False, attr_dict
-        else:
-            return True, self.graph.node[networkx_node_id]
-
     def load_edges(self, rdfgraph: rdflib.Graph):
         with click.progressbar(rdfgraph.subjects(RDF.type, OBAN.association), label='loading edges') as bar:
             for association in bar:
                 attr_dict = defaultdict(list)
                 # Keep the id of this entity (e.g., <https://monarchinitiative.org/MONARCH_08830...>) as the value of 'id'.
                 #attr_dict['id'] = pm.contract(str(association))
-                attr_dict['id'] = str(association)
+                attr_dict['iri'] = str(association)
+                attr_dict['id'] = self.curie(association)
                 attr_dict['provided_by'] = self.graph_metadata['provided_by']
 
                 for s, p, o in rdfgraph.triples((association, None, None)):

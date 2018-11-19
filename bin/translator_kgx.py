@@ -416,32 +416,33 @@ def transform_and_save(t:Transformer, output_path:str, output_type:str=None):
     else:
         error("Could not create file.")
 
+def _get_type(path):
+    t = get_type(path)
+    if t is None:
+        error('Path do not have a recognized transformer type: {}'.format(path))
+    else:
+        return t
+
 def load_transformer(input_paths:List[str], input_type:str=None) -> Transformer:
     """
     Creates a transformer for the appropriate file type and loads the data into
     it from file.
     """
     if input_type is None:
-        input_types = [get_type(i) for i in input_paths]
-        for t in input_types:
-            if input_types[0] != t:
-                error(
-                """\b
-                Each input file must have the same file type.
-                Try setting the --input-type parameter to enforce a single
-                type.
-                """
-                )
-            input_type = input_types[0]
+        input_types = [_get_type(i) for i in input_paths]
+    else:
+        input_types = [input_type for i in input_paths]
 
-    transformer_constructor = get_transformer(input_type)
+    t = None
+    for path, input_type for zip(input_paths, input_types):
+        constructor = get_transformer_constructor(input_type)
 
-    if transformer_constructor is None:
-        error('Inputs do not have a recognized type: ' + str(get_file_types()))
+        if t is None:
+            t = constructor()
+        else:
+            t = constructor(t)
 
-    t = transformer_constructor()
-    for i in input_paths:
-        t.parse(i, input_type)
+        t.parse(path, input_type)
 
     t.report()
 

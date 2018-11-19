@@ -6,6 +6,7 @@ _transformers = {
     'tsv' : kgx.PandasTransformer,
     'graphml' : kgx.GraphMLTransformer,
     'ttl' : kgx.ObanRdfTransformer,
+    'owl' : kgx.RdfOwlTransformer,
     'json' : kgx.JsonTransformer,
     'rq' : kgx.SparqlTransformer
 }
@@ -25,6 +26,9 @@ def is_writable(filepath):
     return is_writable or is_creatable
 
 def get_transformer(extention):
+    return _transformers.get(extention)
+
+def get_transformer_constructor(extention):
     return _transformers.get(extention)
 
 def get_file_types():
