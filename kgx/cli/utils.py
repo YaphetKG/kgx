@@ -25,9 +25,6 @@ def is_writable(filepath):
 
     return is_writable or is_creatable
 
-def get_transformer(extention):
-    return _transformers.get(extention)
-
 def get_transformer_constructor(extention):
     return _transformers.get(extention)
 

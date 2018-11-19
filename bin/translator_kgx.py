@@ -6,7 +6,7 @@ from urllib.parse import urlparse
 from kgx import Transformer, Validator, map_graph, Filter, FilterLocation
 
 from kgx.cli.decorators import handle_exception
-from kgx.cli.utils import get_file_types, get_type, get_transformer, is_writable
+from kgx.cli.utils import get_file_types, get_type, get_transformer_constructor, is_writable
 
 from kgx.cli.utils import Config
 
@@ -397,7 +397,7 @@ def transform_and_save(t:Transformer, output_path:str, output_type:str=None):
     if output_type is None:
         output_type = get_type(output_path)
 
-    output_transformer = get_transformer(output_type)
+    output_transformer = get_transformer_constructor(output_type)
 
     if output_transformer is None:
         error('Output does not have a recognized type: ' + str(get_file_types()))
