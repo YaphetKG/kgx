@@ -53,7 +53,7 @@ class RdfTransformer(Transformer):
         rdfgraph = rdflib.Graph()
 
         guessed_format = rdflib.util.guess_format(filename)
-        if guess_format is not None:
+        if guessed_format is not None:
             input_format = guessed_format
 
         if input_format is None:
