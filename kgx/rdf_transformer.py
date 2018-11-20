@@ -205,12 +205,15 @@ class ObanRdfTransformer(RdfTransformer):
             for f in filters:
                 import pudb; pu.db
                 for s, p, o in rdfgraph.triples(f):
-                    sub_attr = get_node_attr(o)
+                    n = s if f[0] is None else o
+
+                    sub_attr = self.get_node_attr(rdfgraph, n)
+
                     for key, value in sub_attr.items():
                         attr[key] |= sub_attr[key]
 
-                if 'category' in attr:
-                    break
+                    if 'category' in attr:
+                        break
 
         if 'category' not in attr:
             import pudb; pu.db
