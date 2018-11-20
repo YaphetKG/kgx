@@ -202,6 +202,8 @@ class ObanRdfTransformer(RdfTransformer):
                 id_map = {}
 
                 for iri in set(subjects + objects):
+                    if iri == 'http://www.orpha.net/ORDO/Orphanet_93926':
+                        import pudb; pu.db
                     node_id = self.curie(iri)
                     id_map[iri] = node_id
                     if not self.graph.has_node(node_id):
@@ -224,6 +226,9 @@ class ObanRdfTransformer(RdfTransformer):
 
                         node_attr['iri'] = iri
                         node_attr['id'] = node_id
+
+                        if 'category' not in node_attr or node_attr['category'] is None or node_attr['category'] == '':
+                            import pudb; pu.db
 
                         self.graph.add_node(node_id, **node_attr)
                     else:
