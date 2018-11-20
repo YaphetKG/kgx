@@ -207,10 +207,10 @@ class ObanRdfTransformer(RdfTransformer):
                     if not self.graph.has_node(node_id):
                         node_attr = defaultdict(list)
 
-                        for s, p, o in rdfgraph.triples((iri, None, None)):
+                        for s, p, o in rdfgraph.triples((URIRef(iri), None, None)):
                             if p in reverse_mapping:
                                 p = reverse_mapping[p]
-                                node_attr[p].append(str(o))
+                            node_attr[p].append(str(o))
 
                         # for key, value in node_attr.items():
                         #     if isinstance(value, list) and len(value) == 1:
