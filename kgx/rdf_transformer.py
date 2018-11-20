@@ -192,9 +192,9 @@ class ObanRdfTransformer(RdfTransformer):
                         p = reverse_mapping[p]
                     edge_attr[p].append(str(o))
 
-                for key, value in edge_attr.items():
-                    if isinstance(value, list) and len(value) == 1:
-                        edge_attr[key] = value[0]
+                # for key, value in edge_attr.items():
+                #     if isinstance(value, list) and len(value) == 1:
+                #         edge_attr[key] = value[0]
 
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
@@ -212,9 +212,9 @@ class ObanRdfTransformer(RdfTransformer):
                                 p = reverse_mapping[p]
                                 node_attr[p].append(str(o))
 
-                        for key, value in node_attr.items():
-                            if isinstance(value, list) and len(value) == 1:
-                                node_attr[key] = value[0]
+                        # for key, value in node_attr.items():
+                        #     if isinstance(value, list) and len(value) == 1:
+                        #         node_attr[key] = value[0]
 
                         for key, value in node_attr.items():
                             if isinstance(value, str):
