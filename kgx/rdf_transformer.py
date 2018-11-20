@@ -177,6 +177,54 @@ class ObanRdfTransformer(RdfTransformer):
                     for each_o in attr_dict['object']:
                         self.add_edge(s, o, attr_dict=attr_dict)
 
+    def get_node_attr(self, node_iri):
+        """
+        Recursively goes through all exact matches, trying to build up all properties
+        until atleast the category is in the attribute dictionary.
+        """
+        attr = defaultdict(set)
+
+        if not isinstance(node_iri, URIRef):
+            node_iri = URIRef(node_iri)
+
+        for s, p, o in rdfgraph.triples((node_iri, None, None)):
+            if p in reverse_mapping:
+                p = reverse_mapping[p]
+                attr[p].add(str(o))
+            elif isinstance(o, rdflib.term.Literal):
+                attr[p].add(str(o))
+
+        if 'category' not in attr:
+            filters = [
+                (node_iri, mapping['exact_match'], None),
+                (None, mapping['exact_match'], node_iri),
+                (node_iri, mapping['xrefs'], None),
+                (None, mapping['xrefs'], node_iri),
+            ]
+
+            for f in filters:
+                import pudb; pu.db
+                for s, p, o in rdfgraph.triples(f):
+                    sub_attr = get_node_attr(o)
+                    for key, value in sub_attr.items():
+                        attr[key] |= sub_attr[key]
+
+                if 'category' in attr:
+                    break
+
+        if 'category' not in attr:
+            import pudb; pu.db
+
+        return attr
+
+
+    def _load_node(self, iri):
+        node_id = self.curie(iri)
+        id_map[iri] = node_id
+        if not self.graph.has_node(node_id):
+            node_attr = get_node_attr(iri)
+            self.graph.add_node(node_id, **node_attr)
+
     def load_edges(self, rdfgraph: rdflib.Graph):
         with click.progressbar(rdfgraph.subjects(RDF.type, OBAN.association), label='loading edges') as bar:
             for association in bar:
@@ -192,10 +240,6 @@ class ObanRdfTransformer(RdfTransformer):
                         p = reverse_mapping[p]
                     edge_attr[p].append(str(o))
 
-                # for key, value in edge_attr.items():
-                #     if isinstance(value, list) and len(value) == 1:
-                #         edge_attr[key] = value[0]
-
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
 
@@ -207,27 +251,14 @@ class ObanRdfTransformer(RdfTransformer):
                     node_id = self.curie(iri)
                     id_map[iri] = node_id
                     if not self.graph.has_node(node_id):
-                        node_attr = defaultdict(list)
-
-                        for s, p, o in rdfgraph.triples((URIRef(iri), None, None)):
-                            if p in reverse_mapping:
-                                p = reverse_mapping[p]
-                            node_attr[p].append(str(o))
-
-                        # for key, value in node_attr.items():
-                        #     if isinstance(value, list) and len(value) == 1:
-                        #         node_attr[key] = value[0]
-
+                        node_attr = get_node_attr(iri)
                         for key, value in node_attr.items():
-                            if isinstance(value, str):
-                                node_attr[key] = self.curie(value)
-                            elif isinstance(value, (list, tuple, set)):
-                                node_attr[key] = [self.curie(v) for v in value]
+                            node_attr[key] = list(value)
 
                         node_attr['iri'] = iri
                         node_attr['id'] = node_id
 
-                        if 'category' not in node_attr or node_attr['category'] is None or node_attr['category'] == '':
+                        if 'category' not in node_attr:
                             import pudb; pu.db
 
                         self.graph.add_node(node_id, **node_attr)
@@ -238,11 +269,11 @@ class ObanRdfTransformer(RdfTransformer):
                         if 'id' not in node_attr:
                             node_attr['id'] = node_id
 
-                for key, value in edge_attr.items():
-                    if isinstance(value, str):
-                        edge_attr[key] = self.curie(value)
-                    elif isinstance(value, (list, tuple, set)):
-                        edge_attr[key] = [self.curie(v) for v in value]
+                # for key, value in edge_attr.items():
+                #     if isinstance(value, str):
+                #         edge_attr[key] = self.curie(value)
+                #     elif isinstance(value, (list, tuple, set)):
+                #         edge_attr[key] = [self.curie(v) for v in value]
 
                 for subject_iri in subjects:
                     for object_iri in objects:
