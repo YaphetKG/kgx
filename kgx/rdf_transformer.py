@@ -251,7 +251,7 @@ class ObanRdfTransformer(RdfTransformer):
                     node_id = self.curie(iri)
                     id_map[iri] = node_id
                     if not self.graph.has_node(node_id):
-                        node_attr = get_node_attr(iri)
+                        node_attr = self.get_node_attr(iri)
                         for key, value in node_attr.items():
                             node_attr[key] = list(value)
 
