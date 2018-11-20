@@ -25,6 +25,11 @@ mapping = {
     'name': RDFS.label,
     'description' : URIRef('http://purl.org/dc/elements/1.1/description'),
     'has_evidence' : URIRef('http://purl.obolibrary.org/obo/RO_0002558'),
+    # Is exact_match same as xrefs?
+    'exact_match' : URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
+    'xrefs' : URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref'),
+    'category' : URIRef('http://www.w3.org/2000/01/rdf-schema#subClassOf'),
+    'synonyms' : URIRef('http://www.geneontology.org/formats/oboInOwl#hasExactSynonym'),
 }
 reverse_mapping = {y: x for x, y in mapping.items()}
 
@@ -88,7 +93,7 @@ class RdfTransformer(Transformer):
         #    return curies[0]
         #return str(uri)
 
-    def load_nodes(self, rg: rdflib.Graph):
+    def load_nodes(self, rdfgraph: rdflib.Graph):
         G = self.graph
         with click.progressbar(G.nodes(), label='loading nodes') as bar:
             for nid in bar:
@@ -98,7 +103,7 @@ class RdfTransformer(Transformer):
                     continue
                 iri = URIRef(n['iri'])
                 npmap = {}
-                for s,p,o in rg.triples( (iri, None, None) ):
+                for s,p,o in rdfgraph.triples((iri, None, None)):
                     if isinstance(o, rdflib.term.Literal):
                         if p in reverse_mapping:
                             p = reverse_mapping[p]

@@ -25,8 +25,10 @@ class Transformer(object):
         Optional arg: a Transformer
         """
 
-        if graph is not None:
+        if isinstance(graph, nx.MultiDiGraph):
             self.graph = graph
+        elif isinstance(graph, Transformer):
+            self.graph = graph.graph
         else:
             self.graph = nx.MultiDiGraph()
 
@@ -217,4 +219,3 @@ class Transformer(object):
     @staticmethod
     def current_time_in_millis():
             return int(round(time.time() * 1000))
-
