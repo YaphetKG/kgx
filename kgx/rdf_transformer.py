@@ -102,22 +102,26 @@ class RdfTransformer(Transformer):
                     logging.warning("Expected IRI for {}".format(n))
                     continue
                 iri = URIRef(n['iri'])
-                npmap = {}
+                npmap = defaultdict(list))
                 for s,p,o in rdfgraph.triples((iri, None, None)):
-                    if isinstance(o, rdflib.term.Literal):
-                        if p in reverse_mapping:
-                            p = reverse_mapping[p]
-                        npmap[p] = str(o)
-                    if p == rdflib.RDFS.subClassOf:
-                        if 'category' not in npmap:
-                            npmap['category'] = []
+                    if p in reverse_mapping:
+                        p = reverse_mapping[p]
+                        npmap[p].append(str(o))
 
-                        category_curie = self.curie(str(o))
-
-                        if category_curie in category_map:
-                            npmap['category'] += category_map[category_curie]
-                        else:
-                            npmap['category'] += [category_curie]
+                    # if isinstance(o, rdflib.term.Literal):
+                    #     if p in reverse_mapping:
+                    #         p = reverse_mapping[p]
+                    #     npmap[p] = str(o)
+                    # if p == rdflib.RDFS.subClassOf:
+                    #     if 'category' not in npmap:
+                    #         npmap['category'] = []
+                    #
+                    #     category_curie = self.curie(str(o))
+                    #
+                    #     if category_curie in category_map:
+                    #         npmap['category'] += category_map[category_curie]
+                    #     else:
+                    #         npmap['category'] += [category_curie]
 
                 G.add_node(nid, **npmap)
 
@@ -147,7 +151,7 @@ class ObanRdfTransformer(RdfTransformer):
                 self.inv_cmap[v] = k
                 self.cmap[k] = v
 
-    def load_edges(self, rdfgraph: rdflib.Graph):
+    def load_edges2(self, rdfgraph: rdflib.Graph):
         with click.progressbar(rdfgraph.subjects(RDF.type, OBAN.association), label='loading edges') as bar:
             for association in bar:
                 attr_dict = defaultdict(list)
@@ -172,6 +176,75 @@ class ObanRdfTransformer(RdfTransformer):
                 for each_s in attr_dict['subject']:
                     for each_o in attr_dict['object']:
                         self.add_edge(s, o, attr_dict=attr_dict)
+
+    def load_edges(self, rdfgraph: rdflib.Graph):
+        with click.progressbar(rdfgraph.subjects(RDF.type, OBAN.association), label='loading edges') as bar:
+            for association in bar:
+                edge_attr = defaultdict(list)
+                # Keep the id of this entity (e.g., <https://monarchinitiative.org/MONARCH_08830...>) as the value of 'id'.
+                #edge_attr['id'] = pm.contract(str(association))
+                edge_attr['iri'] = str(association)
+                edge_attr['id'] = self.curie(association)
+                edge_attr['provided_by'] = self.graph_metadata['provided_by']
+
+                for s, p, o in rdfgraph.triples((association, None, None)):
+                    if p in reverse_mapping:
+                        p = reverse_mapping[p]
+                    edge_attr[p].append(str(o))
+
+                for key, value in edge_attr.items():
+                    if isinstance(value, list) and len(value) == 1:
+                        edge_attr[key] = value[0]
+
+                subjects = edge_attr['subject']
+                objects = edge_attr['object']
+
+                id_map = {}
+
+                for iri in set(subjects + objects):
+                    node_id = self.curie(iri)
+                    id_map[iri] = node_id
+                    if not self.graph.has_node(node_id):
+                        node_attr = defaultdict(list)
+
+                        for s, p, o in rdfgraph.triples((n, None, None)):
+                            if p in reverse_mapping:
+                                p = reverse_mapping[p]
+                                node_attr[p].append(str(o))
+
+                        for key, value in node_attr.items():
+                            if isinstance(value, list) and len(value) == 1:
+                                node_attr[key] = value[0]
+
+                        for key, value in node_attr.items():
+                            if isinstance(value, str):
+                                node_attr[key] = self.curie(value)
+                            elif isinstance(value, (list, tuple, set)):
+                                node_attr[key] = [self.curie(v) for v in value]
+
+                        node_attr['iri'] = iri
+                        node_attr['id'] = node_id
+
+                        self.graph.add_node(node_id, **node_attr)
+                    else:
+                        node_attr = self.graph.node[node_id]
+                        if 'iri' not in node_attr:
+                            node_attr['iri'] = iri
+                        if 'id' not in node_attr:
+                            node_attr['id'] = node_id
+
+                for key, value in edge_attr.items():
+                    if isinstance(value, str):
+                        edge_attr[key] = self.curie(value)
+                    elif isinstance(value, (list, tuple, set)):
+                        edge_attr[key] = [self.curie(v) for v in value]
+
+                for subject_iri in subjects:
+                    for object_iri in objects:
+                        self.graph.add_edge(id_map[subject_iri], id_map[object_iri], **edge_attr)
+
+    def load_nodes(self, rdfgraph: rdflib.Graph):
+        pass
 
     def curie(self, uri: UriString) -> str:
         curies = contract_uri(str(uri))
