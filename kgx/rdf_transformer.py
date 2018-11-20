@@ -177,7 +177,7 @@ class ObanRdfTransformer(RdfTransformer):
                     for each_o in attr_dict['object']:
                         self.add_edge(s, o, attr_dict=attr_dict)
 
-    def get_node_attr(self, node_iri):
+    def get_node_attr(self, rdfgraph, node_iri):
         """
         Recursively goes through all exact matches, trying to build up all properties
         until atleast the category is in the attribute dictionary.
@@ -251,7 +251,7 @@ class ObanRdfTransformer(RdfTransformer):
                     node_id = self.curie(iri)
                     id_map[iri] = node_id
                     if not self.graph.has_node(node_id):
-                        node_attr = self.get_node_attr(iri)
+                        node_attr = self.get_node_attr(rdfgraph, iri)
                         for key, value in node_attr.items():
                             node_attr[key] = list(value)
 
