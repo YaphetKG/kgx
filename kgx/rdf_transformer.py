@@ -102,7 +102,7 @@ class RdfTransformer(Transformer):
                     logging.warning("Expected IRI for {}".format(n))
                     continue
                 iri = URIRef(n['iri'])
-                npmap = defaultdict(list))
+                npmap = defaultdict(list)
                 for s,p,o in rdfgraph.triples((iri, None, None)):
                     if p in reverse_mapping:
                         p = reverse_mapping[p]
