@@ -39,6 +39,36 @@ category_map = {
     'SO:0000110' : ['variant', 'sequence feature'],
 }
 
+iri_to_categories_map = {
+    "http://purl.obolibrary.org/obo/CL_0000000" : "cell"
+    "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity"
+    "http://purl.obolibrary.org/obo/ZFA_0009000" : "cell"
+    "http://purl.obolibrary.org/obo/UBERON_0004529" : "anatomical projection"
+    "http://purl.obolibrary.org/obo/UBERON_0000468" : "multi-cellular organism"
+    "http://purl.obolibrary.org/obo/UBERON_0000955" : "brain"
+    "http://purl.obolibrary.org/obo/PATO_0000001" : "quality"
+    "http://purl.obolibrary.org/obo/GO_0005623" : "cell"
+    "http://purl.obolibrary.org/obo/WBbt_0007833" : "organism"
+    "http://purl.obolibrary.org/obo/WBbt_0004017" : "cell"
+    "http://purl.obolibrary.org/obo/MONDO_0000001" : "disease"
+    "http://purl.obolibrary.org/obo/PATO_0000003" : "assay"
+    "http://purl.obolibrary.org/obo/PATO_0000006" : "process"
+    "http://purl.obolibrary.org/obo/PATO_0000011" : "age"
+    "http://purl.obolibrary.org/obo/ZFA_0000008" : "brain"
+    "http://purl.obolibrary.org/obo/ZFA_0001637" : "bony projection"
+    "http://purl.obolibrary.org/obo/WBPhenotype_0000061" : "extended life span"
+    "http://purl.obolibrary.org/obo/WBPhenotype_0000039" : "life span variant"
+    "http://purl.obolibrary.org/obo/WBPhenotype_0001171" : "shortened life span"
+    "http://purl.obolibrary.org/obo/CHEBI_23367" : "molecular entity"
+    "http://purl.obolibrary.org/obo/CHEBI_23888" : "drug"
+    "http://purl.obolibrary.org/obo/CHEBI_51086" : "chemical role"
+    "http://purl.obolibrary.org/obo/UPHENO_0001001" : "Phenotype"
+    "http://purl.obolibrary.org/obo/GO_0008150" : "biological_process"
+    "http://purl.obolibrary.org/obo/GO_0005575" : "cellular component"
+    "http://purl.obolibrary.org/obo/SO_0000704" : "gene"
+    "http://purl.obolibrary.org/obo/SO_0000110" : "sequence feature"
+    "http://purl.obolibrary.org/obo/GENO_0000536" : "genotype"
+}
 
 class RdfTransformer(Transformer):
     """
@@ -203,7 +233,6 @@ class ObanRdfTransformer(RdfTransformer):
             ]
 
             for f in filters:
-                import pudb; pu.db
                 for s, p, o in rdfgraph.triples(f):
                     n = s if f[0] is None else o
 
@@ -211,9 +240,6 @@ class ObanRdfTransformer(RdfTransformer):
 
                     for key, value in sub_attr.items():
                         attr[key] |= sub_attr[key]
-
-                    if 'category' in attr:
-                        break
 
         if 'category' not in attr:
             import pudb; pu.db
@@ -263,6 +289,16 @@ class ObanRdfTransformer(RdfTransformer):
 
                         if 'category' not in node_attr:
                             import pudb; pu.db
+                        else:
+                            import pudb; pu.db
+                            categories = []
+                            for category_iri in node_attr['category']:
+                                if category_iri in iri_to_categories_map:
+                                    categories.append(iri_to_categories_map[category_iri])
+                            if categories != []:
+                                node_attr['category'] = categories
+                            else:
+                                node_attr.pop('category', None)
 
                         self.graph.add_node(node_id, **node_attr)
                     else:
