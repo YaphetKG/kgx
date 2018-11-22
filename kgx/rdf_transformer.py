@@ -1,5 +1,6 @@
 from .transformer import Transformer
 
+import networkx as nx
 import rdflib
 import logging
 import uuid
@@ -40,6 +41,7 @@ category_map = {
 }
 
 iri_to_categories_map = {
+    # These are from the original yaml file
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
     "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity",
     "http://purl.obolibrary.org/obo/ZFA_0009000" : "cell",
@@ -109,8 +111,12 @@ class RdfTransformer(Transformer):
         if provided_by is not None and isinstance(filename, str):
             provided_by = filename
         self.graph_metadata['provided_by'] = provided_by
+        logging.info('Loading edges')
         self.load_edges(rdfgraph)
+        logging.info('Loading nodes')
         self.load_nodes(rdfgraph)
+        logging.info('Removing isolated nodes')
+        self.graph.remove_nodes_from(nx.isolates(self.graph))
 
     def curie(self, uri: UriString) -> str:
         """
@@ -161,6 +167,10 @@ class RdfTransformer(Transformer):
     def add_edge(self, o:UriString, s:UriString, attr_dict={}):
         sid = self.curie(s)
         oid = self.curie(o)
+        if 'category' not in self.graph.node[sid]:
+            return
+        if 'category' not in self.graph.node[oid]:
+            return
         self.graph.add_node(sid, iri=str(s))
         self.graph.add_node(oid, iri=str(o))
         self.graph.add_edge(oid, sid, **attr_dict)
@@ -207,11 +217,168 @@ class ObanRdfTransformer(RdfTransformer):
                     for each_o in attr_dict['object']:
                         self.add_edge(s, o, attr_dict=attr_dict)
 
+    def get_node_xrefs(self, rdfgraph, node_iri):
+        """
+        Recursively goes through all exact matches, building up all properties
+        """
+        attr = defaultdict(set)
+
+        methods = [rdfgraph.subjects, rdfgraph.objects]
+        predicates = [
+            URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
+            URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref')
+        ]
+
+        for method in methods:
+            for predicate in predicates:
+                for match_iri in method(node_iri, predicate):
+
+                    sub_attr = self.get_node_xrefs(rdfgraph, match_iri)
+
+                    for key, value in sub_attr.items():
+                        attr[key] |= sub_attr[key]
+
+                    attr['xrefs'] |= {match_iri}
+        return attr
+
+    def iterate_xrefs(self, rdfgraph, node_iri):
+        if not isinstance(node_iri, URIRef):
+            node_iri = URIRef(node_iri)
+
+        to_visit = {node_iri}
+        visited = set()
+
+        while len(to_visit) != 0:
+            iri = to_visit.pop()
+            visited.add(iri)
+
+            for equivalent_iri in rdfgraph.subjects(predicate=OWL['equivalentClass'], object=iri):
+                if equivalent_iri not in visited:
+                    to_visit.add(equivalent_iri)
+                    yield equivalent_iri
+
+            for equivalent_iri in rdfgraph.objects(subject=iri, predicate=OWL['equivalentClass']):
+                if equivalent_iri not in visited:
+                    to_visit.add(equivalent_iri)
+                    yield equivalent_iri
+
+    def iterate_superclasses(self, rdfgraph, node_iri):
+        if not isinstance(node_iri, URIRef):
+            node_iri = URIRef(node_iri)
+
+        to_visit = {node_iri}
+        visited = set()
+
+        while len(to_visit) != 0:
+            iri = to_visit.pop()
+            visited.add(iri)
+
+            for superclass in rdfgraph.objects(subject=iri, predicate=RDFS.subClassOf):
+                if superclass not in visited:
+                    to_visit.add(superclass)
+                    yield superclass
+
+    def walk(self, rdfgraph, node_iri, next_node_generator):
+        """
+        next_node_generator is a function that takes an iri and returns a generator for iris.
+        next_node_generator might return Tuple[iri, int], in which case int is taken to be
+        the score of the edge. If no score is returned, then the score will be
+        taken to be zero.
+        """
+        if not isinstance(node_iri, URIRef):
+            node_iri = URIRef(node_iri)
+        to_visit = {node_iri : 0}
+        visited = {}
+        while to_visit != {}:
+            iri, score = to_visit.popitem()
+            visited[iri] = score
+            for t in next_node_generator(iri):
+                if isinstance(t, tuple) and len(t) > 1:
+                    n, s = t
+                else:
+                    n, s = t, 0
+                if n not in visited:
+                    to_visit[n] = score + s
+                    yield n, to_visit[n]
+
+    def find_category(self, rdfgraph, iri):
+        if not isinstance(iri, URIRef):
+            iri = URIRef(iri)
+
+        def super_class_generator(iri:URIRef) -> URIRef:
+            """
+            Generates nodes and scores for walking a path from the given iri to its
+            superclasses. equivalence edges are weighted zero, since they don't count
+            as moving further up the ontological hierarchy.
+
+            Note: Not every node generated is gaurenteed to be a superclass
+            """
+            for equivalent_iri in rdfgraph.subjects(predicate=OWL['equivalentClass'], object=iri):
+                yield equivalent_iri, 0
+            for equivalent_iri in rdfgraph.objects(subject=iri, predicate=OWL['equivalentClass']):
+                yield equivalent_iri, 0
+            for superclass_iri in rdfgraph.objects(subject=iri, predicate=RDFS.subClassOf):
+                yield superclass_iri, 1
+
+        for node, score in self.walk(rdfgraph, iri, super_class_generator):
+            if str(node) in iri_to_categories_map:
+                return iri_to_categories_map[str(node)]
+
+        return None
+
+        # if str(iri) in iri_to_categories_map:
+        #     return iri_to_categories_map[str(iri)]
+        # else:
+        #     for super_iri in rdfgraph.objects(iri, RDFS.subClassOf):
+        #         c = self.find_category(rdfgraph, super_iri)
+        #         if c is not None:
+        #             return c
+        #
+        #     for xref_iri in self.iterate_xrefs(rdfgraph, iri):
+        #         c = self.find_category(rdfgraph, xref_iri)
+        #         if c is not None:
+        #             return c
+
+    def get_best_category(self, rdfgraph, iri, score=0): #-> Tuple[URIRef, int]
+        """
+        Returns the highest superclass of the given iri. The returned score will
+        indicate how many levels of inheritance we have explored to get this
+        superclass. If score==0 then we're just returning the given iri.
+        """
+        if not isinstance(iri, URIRef):
+            iri = URIRef(iri)
+
+        best_iri, best_score = iri, score
+
+        for super_iri in rdfgraph.objects(iri, RDFS.subClassOf):
+            i, s = self.get_best_category(rdfgraph, super_iri, score=score+1)
+            if s > best_score:
+                best_iri, best_score = i, s
+
+        for xref_iri in self.iterate_xrefs(rdfgraph, iri):
+            i, s = self.get_best_category(rdfgraph, xref_iri, score=score)
+            if s > best_score:
+                best_iri, best_score = i, s
+
+        return best_iri, best_score
+
+    def get_node_categories(self, rdfgraph, node_iri):
+        if not isinstance(node_iri, URIRef):
+            node_iri = URIRef(node_iri)
+
+        stack = [node_iri]
+
+        while len(stack) != 0:
+            for iri in rdfgraph.objects(stack.pop(), RDFS.subClassOf):
+                stack.append(iri)
+
+                c = str(iri)
+
+                if c in iri_to_categories_map:
+                    return iri_to_categories_map[c]
+        return None
+
     def get_node_attr(self, rdfgraph, node_iri):
-        """
-        Recursively goes through all exact matches, trying to build up all properties
-        until atleast the category is in the attribute dictionary.
-        """
         attr = defaultdict(set)
 
         if not isinstance(node_iri, URIRef):
@@ -224,35 +391,21 @@ class ObanRdfTransformer(RdfTransformer):
             elif isinstance(o, rdflib.term.Literal):
                 attr[p].add(str(o))
 
-        if 'category' not in attr:
-            filters = [
-                (node_iri, mapping['exact_match'], None),
-                (None, mapping['exact_match'], node_iri),
-                (node_iri, mapping['xrefs'], None),
-                (None, mapping['xrefs'], node_iri),
-            ]
+        xref_attr = self.get_node_xrefs(rdfgraph, node_iri)
+        for key, value in xref_attr.items():
+            attr[key] |= value
 
-            for f in filters:
-                for s, p, o in rdfgraph.triples(f):
-                    n = s if f[0] is None else o
+        xrefs = {node_iri}
+        if 'xrefs' in attr:
+            xrefs |= attr['xrefs']
 
-                    sub_attr = self.get_node_attr(rdfgraph, n)
-
-                    for key, value in sub_attr.items():
-                        attr[key] |= sub_attr[key]
-
-        if 'category' not in attr:
-            import pudb; pu.db
+        for xref in xrefs:
+            category = self.get_node_categories(rdfgraph, xref)
+            if category is not None:
+                attr['category'] = [category]
+                break
 
         return attr
-
-
-    def _load_node(self, iri):
-        node_id = self.curie(iri)
-        id_map[iri] = node_id
-        if not self.graph.has_node(node_id):
-            node_attr = get_node_attr(iri)
-            self.graph.add_node(node_id, **node_attr)
 
     def load_edges(self, rdfgraph: rdflib.Graph):
         with click.progressbar(rdfgraph.subjects(RDF.type, OBAN.association), label='loading edges') as bar:
@@ -267,7 +420,9 @@ class ObanRdfTransformer(RdfTransformer):
                 for s, p, o in rdfgraph.triples((association, None, None)):
                     if p in reverse_mapping:
                         p = reverse_mapping[p]
-                    edge_attr[p].append(str(o))
+                        edge_attr[p].append(str(o))
+                    elif isinstance(o, rdflib.term.Literal):
+                        attr[p].add(str(o))
 
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
@@ -275,8 +430,6 @@ class ObanRdfTransformer(RdfTransformer):
                 id_map = {}
 
                 for iri in set(subjects + objects):
-                    if iri == 'http://www.orpha.net/ORDO/Orphanet_93926':
-                        import pudb; pu.db
                     node_id = self.curie(iri)
                     id_map[iri] = node_id
                     if not self.graph.has_node(node_id):
@@ -287,18 +440,9 @@ class ObanRdfTransformer(RdfTransformer):
                         node_attr['iri'] = iri
                         node_attr['id'] = node_id
 
-                        if 'category' not in node_attr:
-                            import pudb; pu.db
-                        else:
-                            import pudb; pu.db
-                            categories = []
-                            for category_iri in node_attr['category']:
-                                if category_iri in iri_to_categories_map:
-                                    categories.append(iri_to_categories_map[category_iri])
-                            if categories != []:
-                                node_attr['category'] = categories
-                            else:
-                                node_attr.pop('category', None)
+                        c = self.find_category(rdfgraph, iri)
+                        if c is not None:
+                            node_attr['category'] = [c]
 
                         self.graph.add_node(node_id, **node_attr)
                     else:
