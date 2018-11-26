@@ -242,6 +242,9 @@ class ObanRdfTransformer(RdfTransformer):
                 elif isinstance(o, rdflib.term.Literal):
                     node_attr[p].add(str(o))
 
+            for key, value in node_attr.items():
+                node_attr[key] = list(value)
+
             node_attr['iri'] = iri
             node_attr['id'] = networkx_id
 
@@ -266,7 +269,7 @@ class ObanRdfTransformer(RdfTransformer):
                         p = reverse_mapping[p]
                         edge_attr[p].append(str(o))
                     elif isinstance(o, rdflib.term.Literal):
-                        edge_attr[p].add(str(o))
+                        edge_attr[p].append(str(o))
 
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
