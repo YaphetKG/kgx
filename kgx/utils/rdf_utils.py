@@ -17,7 +17,7 @@ def reverse_mapping(d:dict):
 
 category_mapping = {
 # Added myself!
-    "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene"
+    "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene",
     "http://purl.obolibrary.org/obo/GENO_0000002" : "variant allele",
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
