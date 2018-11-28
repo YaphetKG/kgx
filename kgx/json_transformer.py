@@ -3,6 +3,13 @@ import logging
 from .transformer import Transformer
 from .pandas_transformer import PandasTransformer  # Temp
 
+class JSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, (tuple, set)):
+            return list(obj)
+        else:
+            return json.JSONEncoder.default(self, obj)
+
 class JsonTransformer(PandasTransformer):
     """
     """
@@ -31,11 +38,11 @@ class JsonTransformer(PandasTransformer):
     def export(self):
         nodes=[]
         edges=[]
-        for id,data in self.graph.nodes_iter(data=True):
+        for id, data in self.graph.nodes(data=True):
             node = data.copy()
             node['id'] = id
             nodes.append(node)
-        for o,s,data in self.graph.edges_iter(data=True):
+        for o, s, data in self.graph.edges(data=True):
             edge = data.copy()
             edge['subject'] = s
             edge['object'] = o
@@ -52,4 +59,4 @@ class JsonTransformer(PandasTransformer):
         """
         obj = self.export()
         with open(filename,'w') as file:
-            file.write(json.dumps(obj, indent=4, sort_keys=True))
+            file.write(json.dumps(obj, indent=4, sort_keys=True, cls=JSONEncoder))
