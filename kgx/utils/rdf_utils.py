@@ -69,7 +69,12 @@ property_mapping = {
 
 reverse_property_mapping = reverse_mapping(property_mapping)
 
-equals_predicates = [OWL.equivalentClass]
+equals_predicates = [
+    OWL.equivalentClass,
+    URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref'),
+    URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
+]
+
 isa_predicates = [RDFS.subClassOf, RDF.type]
 
 def walk(rdfgraph, node_iri, next_node_generator):
