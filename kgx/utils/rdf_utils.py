@@ -19,6 +19,8 @@ category_mapping = {
 # Added myself!
     "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene",
     "http://purl.obolibrary.org/obo/GENO_0000002" : "variant allele",
+    # sequence feature for clinvar?
+    "http://purl.obolibrary.org/obo/SO_0000110" : "sequence feature",
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
     "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity",
@@ -100,10 +102,13 @@ def walk(rdfgraph, node_iri, next_node_generator):
                 to_visit[n] = score + s
                 yield n, to_visit[n]
 
-def find_category(rdfgraph:rdflib.Graph, iri:URIRef):
+def find_category(rdfgraph:rdflib.Graph, iri:URIRef) -> str:
     """
     Finds a category for the given iri, by walking up edges with isa predicates
-    and across edges with identity predicates
+    and across edges with identity predicates.
+
+    Tries to get a category in category_mapping. If none are found then takes
+    the highest superclass it can find.
     """
     if not isinstance(iri, URIRef):
         iri = URIRef(iri)
@@ -132,11 +137,14 @@ def find_category(rdfgraph:rdflib.Graph, iri:URIRef):
             for superclass_iri in rdfgraph.objects(subject=iri, predicate=predicate):
                 yield superclass_iri, 1
 
+    best_iri, best_score = None, 0
     for uri_ref, score in walk(rdfgraph, iri, super_class_generator):
         if str(uri_ref) in category_mapping and score > 0:
             return category_mapping[str(uri_ref)]
+        elif score > best_score:
+            best_iri, best_score = str(uriref), score
 
-    return None
+    return best_iri
 
 def make_curie(uri:URIRef) -> str:
     """
