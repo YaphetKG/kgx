@@ -142,7 +142,7 @@ def find_category(rdfgraph:rdflib.Graph, iri:URIRef) -> str:
         if str(uri_ref) in category_mapping and score > 0:
             return category_mapping[str(uri_ref)]
         elif score > best_score:
-            best_iri, best_score = str(uriref), score
+            best_iri, best_score = str(uri_ref), score
 
     return best_iri
 
