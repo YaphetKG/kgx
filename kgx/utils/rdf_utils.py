@@ -79,7 +79,7 @@ equals_predicates = [
 
 isa_predicates = [RDFS.subClassOf, RDF.type]
 
-def walk(rdfgraph, node_iri, next_node_generator):
+def walk(node_iri:URIRef, next_node_generator):
     """
     next_node_generator is a function that takes an iri and returns a generator for iris.
     next_node_generator might return Tuple[iri, int], in which case int is taken to be
@@ -88,8 +88,10 @@ def walk(rdfgraph, node_iri, next_node_generator):
     """
     if not isinstance(node_iri, URIRef):
         node_iri = URIRef(node_iri)
-    to_visit = {node_iri : 0}
-    visited = {}
+
+    to_visit = {node_iri : 0} # Dict[URIRef, Integer]
+    visited = {} # Dict[URIRef, Integer]
+
     while to_visit != {}:
         iri, score = to_visit.popitem()
         visited[iri] = score
@@ -102,7 +104,7 @@ def walk(rdfgraph, node_iri, next_node_generator):
                 to_visit[n] = score + s
                 yield n, to_visit[n]
 
-def find_category(rdfgraph:rdflib.Graph, iri:URIRef) -> str:
+def find_category(iri:URIRef, rdfgraphs:List[rdflib.Graph]) -> str:
     """
     Finds a category for the given iri, by walking up edges with isa predicates
     and across edges with identity predicates.
@@ -110,6 +112,9 @@ def find_category(rdfgraph:rdflib.Graph, iri:URIRef) -> str:
     Tries to get a category in category_mapping. If none are found then takes
     the highest superclass it can find.
     """
+    if not isinstance(rdfgraphs, (list, tuple, set)):
+        rdfgraphs = [rdfgraphs]
+
     if not isinstance(iri, URIRef):
         iri = URIRef(iri)
 
@@ -121,24 +126,25 @@ def find_category(rdfgraph:rdflib.Graph, iri:URIRef) -> str:
 
         Note: Not every node generated is gaurenteed to be a superclass
         """
-        for predicate in equals_predicates:
-            if not isinstance(predicate, URIRef):
-                predicate = URIRef(predicate)
+        for rdfgraph in rdfgraphs:
+            for predicate in equals_predicates:
+                if not isinstance(predicate, URIRef):
+                    predicate = URIRef(predicate)
 
-            for equivalent_iri in rdfgraph.subjects(predicate=predicate, object=iri):
-                yield equivalent_iri, 0
-            for equivalent_iri in rdfgraph.objects(subject=iri, predicate=predicate):
-                yield equivalent_iri, 0
+                for equivalent_iri in rdfgraph.subjects(predicate=predicate, object=iri):
+                    yield equivalent_iri, 0
+                for equivalent_iri in rdfgraph.objects(subject=iri, predicate=predicate):
+                    yield equivalent_iri, 0
 
-        for predicate in isa_predicates:
-            if not isinstance(predicate, URIRef):
-                predicate = URIRef(predicate)
+            for predicate in isa_predicates:
+                if not isinstance(predicate, URIRef):
+                    predicate = URIRef(predicate)
 
-            for superclass_iri in rdfgraph.objects(subject=iri, predicate=predicate):
-                yield superclass_iri, 1
+                for superclass_iri in rdfgraph.objects(subject=iri, predicate=predicate):
+                    yield superclass_iri, 1
 
     best_iri, best_score = None, 0
-    for uri_ref, score in walk(rdfgraph, iri, super_class_generator):
+    for uri_ref, score in walk(iri, super_class_generator):
         if str(uri_ref) in category_mapping and score > 0:
             return category_mapping[str(uri_ref)]
         elif score > best_score:

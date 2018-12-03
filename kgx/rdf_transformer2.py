@@ -52,15 +52,10 @@ class RdfTransformer(Transformer):
                         else:
                             node_attr[p] = o
 
-                c = find_category(rdfgraph, iri)
+                graphs = [rdfgraph] + self.ontologies
+                c = find_category(iri, graphs)
                 if c is not None:
                     node_attr['category'] = [c]
-                else:
-                    for ont in self.ontologies:
-                        c = find_category(ont, iri)
-                        if c is not None:
-                            node_attr['category'] = [c]
-                            break
 
                 for key, value in node_attr.items():
                     self.graph.node[node_id][key] = value
