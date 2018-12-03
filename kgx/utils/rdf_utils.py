@@ -16,11 +16,8 @@ def reverse_mapping(d:dict):
     return {value : set(k for k, v in d.items() if v == value) for value in d.items()}
 
 category_mapping = {
-# Added myself!
-    "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene",
-    "http://purl.obolibrary.org/obo/GENO_0000002" : "variant allele",
-    # sequence feature for clinvar?
-    "http://purl.obolibrary.org/obo/SO_0000110" : "sequence feature",
+    # "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene", # isa gene
+    # "http://purl.obolibrary.org/obo/GENO_0000002" : "variant allele", #isa sequence feature
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
     "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity",
@@ -126,22 +123,30 @@ def find_category(iri:URIRef, rdfgraphs:List[rdflib.Graph]) -> str:
 
         Note: Not every node generated is gaurenteed to be a superclass
         """
+        ignore = [
+            'http://www.w3.org/2002/07/owl#Class',
+            'http://purl.obolibrary.org/obo/HP_0000001'
+        ]
+
         for rdfgraph in rdfgraphs:
             for predicate in equals_predicates:
                 if not isinstance(predicate, URIRef):
                     predicate = URIRef(predicate)
 
                 for equivalent_iri in rdfgraph.subjects(predicate=predicate, object=iri):
-                    yield equivalent_iri, 0
+                    if str(equivalent_iri) not in ignore:
+                        yield equivalent_iri, 0
                 for equivalent_iri in rdfgraph.objects(subject=iri, predicate=predicate):
-                    yield equivalent_iri, 0
+                    if str(equivalent_iri) not in ignore:
+                        yield equivalent_iri, 0
 
             for predicate in isa_predicates:
                 if not isinstance(predicate, URIRef):
                     predicate = URIRef(predicate)
 
                 for superclass_iri in rdfgraph.objects(subject=iri, predicate=predicate):
-                    yield superclass_iri, 1
+                    if str(superclass_iri) not in ignore:
+                        yield superclass_iri, 1
 
     best_iri, best_score = None, 0
     for uri_ref, score in walk(iri, super_class_generator):
