@@ -19,13 +19,13 @@ def map_graph(G, mapping, preserve=True):
     nx.relabel_nodes(G, mapping, copy=False)
 
 class Clique(set):
-    def add_all(e):
+    def add_all(self, e):
         if isinstance(e, (list, set, tuple)):
             self.update(e)
         else:
             self.add(e)
 
-    def get_leader():
+    def get_leader(self):
         l = list(self)
         l.sort()
         return l[0]
