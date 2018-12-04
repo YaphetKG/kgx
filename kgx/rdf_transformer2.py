@@ -66,6 +66,10 @@ class RdfTransformer(Transformer):
                 if provided_by is not None:
                     node_attr['provided_by'].append(provided_by)
 
+                for k, values in node_attr.items():
+                    if isinstance(values, list):
+                        node_attr[k] = [make_curie(v) for v in values]
+
                 for key, value in node_attr.items():
                     self.graph.node[node_id][key] = value
 
@@ -77,6 +81,9 @@ class ObanRdfTransformer(RdfTransformer):
         with click.progressbar(associations, label='loading edges') as bar:
             for association in bar:
                 edge_attr = defaultdict(list)
+
+                edge_attr['iri'] = str(association)
+                edge_attr['id'] = make_curie(association)
 
                 for s, p, o in rdfgraph.triples((association, None, None)):
                     if p in property_mapping or isinstance(o, rdflib.term.Literal):
@@ -90,8 +97,15 @@ class ObanRdfTransformer(RdfTransformer):
                 if provided_by is not None:
                     edge_attr['provided_by'].append(provided_by)
 
-                for subject_iri in edge_attr['subject']:
-                    for object_iri in edge_attr['object']:
+                subjects = edge_attr['subject']
+                objects = edge_attr['object']
+
+                for k, values in edge_attr.items():
+                    if isinstance(values, list):
+                        edge_attr[k] = [make_curie(v) for v in values]
+
+                for subject_iri in subjects:
+                    for object_iri in objects:
                         sid = make_curie(subject_iri)
                         oid = make_curie(object_iri)
 

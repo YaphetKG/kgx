@@ -100,7 +100,7 @@ def process_iri(iri:Union[str, URIRef]) -> str:
             if iri.lower() == key.lower():
                 return value
 
-    return make_curie(iri)
+    return iri
 
 reverse_category_mapping = reverse_mapping(category_mapping)
 
