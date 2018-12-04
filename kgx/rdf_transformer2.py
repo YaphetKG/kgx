@@ -82,7 +82,7 @@ class ObanRdfTransformer(RdfTransformer):
                     if p in property_mapping or isinstance(o, rdflib.term.Literal):
                         p = property_mapping.get(p, process_iri(p))
                         o = process_iri(o)
-                        node_attr[p].append(o)
+                        edge_attr[p].append(o)
 
                 if 'predicate' not in edge_attr:
                     edge_attr['predicate'].append('related to')
