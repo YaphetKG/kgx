@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 import rdflib
 from rdflib import Namespace, URIRef
@@ -66,9 +66,9 @@ property_mapping = {
     URIRef('http://purl.org/dc/elements/1.1/description') : 'description',
     URIRef('http://purl.obolibrary.org/obo/RO_0002558') : 'has_evidence',
     URIRef('http://www.geneontology.org/formats/oboInOwl#hasExactSynonym') : 'synonyms',
-    URIRef('http://www.w3.org/2004/02/skos/core#exactMatch') : 'exact_match',
-    URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref') : 'exact_match',
-    OWL.equivalentClass : 'exact_match'
+    URIRef('http://www.w3.org/2004/02/skos/core#exactMatch') : 'same_as',
+    URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref') : 'same_as',
+    OWL.equivalentClass : 'same_as'
 }
 
 reverse_property_mapping = reverse_mapping(property_mapping)
@@ -83,20 +83,23 @@ def make_curie(uri:URIRef) -> str:
         return curies[0]
     return str(uri)
 
-def process_iri(iri:str) -> str:
+def process_iri(iri:Union[str, URIRef]) -> str:
     """
     Casts iri to a string, and then checks whether it maps to any pre-defined
     values. If so returns that value, otherwise converts that iri to a curie
     and returns.
     """
-    if not isinstance(v, str):
-        v = str(v)
-    if v in predicate_mapping:
-        return predicate_mapping[v]
-    if v in category_mapping:
-        return category_mapping[v]
-    if v in property_mapping:
-        return property_mapping[v]
+    mappings = [
+        predicate_mapping,
+        category_mapping,
+        property_mapping,
+    ]
+
+    for mapping in mappings:
+        for key, value in mapping.items():
+            if iri.lower() == key.lower():
+                return value
+
     return make_curie(v)
 
 reverse_category_mapping = reverse_mapping(category_mapping)
