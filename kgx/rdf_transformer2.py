@@ -54,7 +54,7 @@ class RdfTransformer(Transformer):
 
                 for s, p, o in rdfgraph.triples((URIRef(iri), None, None)):
                     if p in property_mapping or isinstance(o, rdflib.term.Literal):
-                        p = property_mapping.get(p, process_iri(p))
+                        p = property_mapping.get(p, make_curie(process_iri(p)))
                         o = process_iri(o)
                         node_attr[p].append(o)
 
@@ -68,7 +68,7 @@ class RdfTransformer(Transformer):
 
                 for k, values in node_attr.items():
                     if isinstance(values, (list, set, tuple)):
-                        node_attr[make_curie(k)] = [make_curie(v) for v in values]
+                        node_attr[k] = [make_curie(v) for v in values]
 
                 for key, value in node_attr.items():
                     self.graph.node[node_id][key] = value
@@ -87,7 +87,7 @@ class ObanRdfTransformer(RdfTransformer):
 
                 for s, p, o in rdfgraph.triples((association, None, None)):
                     if p in property_mapping or isinstance(o, rdflib.term.Literal):
-                        p = property_mapping.get(p, process_iri(p))
+                        p = property_mapping.get(p, make_curie(process_iri(p)))
                         o = process_iri(o)
                         edge_attr[p].append(o)
 
@@ -102,7 +102,7 @@ class ObanRdfTransformer(RdfTransformer):
 
                 for k, values in edge_attr.items():
                     if isinstance(values, (list, set, tuple)):
-                        edge_attr[make_curie(k)] = [make_curie(v) for v in values]
+                        edge_attr[k] = [make_curie(v) for v in values]
 
                 for subject_iri in subjects:
                     for object_iri in objects:
