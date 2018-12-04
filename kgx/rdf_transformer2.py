@@ -78,17 +78,18 @@ class ObanRdfTransformer(RdfTransformer):
 
                 if 'predicate' not in edge_attr:
                     edge_attr['predicate'] = ['related to']
-                elif edge_attr['predicate'] in predicate_mapping:
-                    edge_attr['predicate'] = predicate_mapping[edge_attr['predicate']]
+
+                make_name = lambda p: property_mapping[p] if p in property_mapping else p
+                edge_attr['predicate'] = [make_name(p) for p in edge_attr['predicate']]
 
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
 
-                for key, value in edge_attr.items():
-                    if isinstance(value, (list, str, tuple)):
-                        edge_attr[key] = list(set(make_curie(v) for v in value))
+                for key, values in edge_attr.items():
+                    if isinstance(values, (list, str, tuple)):
+                        edge_attr[key] = list(set(make_curie(v) for v in values))
                     else:
-                        edge_attr[key] = make_curie(value)
+                        edge_attr[key] = make_curie(values)
 
                 for subject_iri in subjects:
                     for object_iri in objects:
