@@ -20,13 +20,10 @@ class JsonTransformer(PandasTransformer):
         """
         with open(filename, 'r') as f:
             obj = json.load(f)
-            self.load(obj)
-
-    def load(self, obj):
-        if 'nodes' in obj:
-            self.load_nodes(obj['nodes'])
-        if 'edges' in obj:
-            self.load_edges(obj['edges'])
+            if 'nodes' in obj:
+                self.load_nodes(obj['nodes'])
+            if 'edges' in obj:
+                self.load_edges(obj['edges'])
 
     def load_nodes(self, objs):
         for obj in objs:

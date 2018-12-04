@@ -56,8 +56,6 @@ category_mapping = {
     "http://purl.obolibrary.org/obo/GENO_0000536" : "genotype",
 }
 
-reverse_category_mapping = reverse_mapping(category_mapping)
-
 property_mapping = {
     OBAN.association_has_subject : 'subject',
     OBAN.association_has_object : 'object',
@@ -74,6 +72,34 @@ property_mapping = {
 }
 
 reverse_property_mapping = reverse_mapping(property_mapping)
+
+def make_curie(uri:URIRef) -> str:
+    """
+    We sort the curies to ensure that we take the same item every time
+    """
+    curies = contract_uri(str(uri))
+    curies.sort()
+    if len(curies) > 0:
+        return curies[0]
+    return str(uri)
+
+def process_iri(iri:str) -> str:
+    """
+    Casts iri to a string, and then checks whether it maps to any pre-defined
+    values. If so returns that value, otherwise converts that iri to a curie
+    and returns.
+    """
+    if not isinstance(v, str):
+        v = str(v)
+    if v in predicate_mapping:
+        return predicate_mapping[v]
+    if v in category_mapping:
+        return category_mapping[v]
+    if v in property_mapping:
+        return property_mapping[v]
+    return make_curie(v)
+
+reverse_category_mapping = reverse_mapping(category_mapping)
 
 equals_predicates = [
     OWL.equivalentClass,
@@ -163,13 +189,3 @@ def find_category(iri:URIRef, rdfgraphs:List[rdflib.Graph]) -> str:
             best_iri, best_score = str(uri_ref), score
 
     return best_iri
-
-def make_curie(uri:URIRef) -> str:
-    """
-    We sort the curies to ensure that we take the same item every time
-    """
-    curies = contract_uri(str(uri))
-    curies.sort()
-    if len(curies) > 0:
-        return curies[0]
-    return str(uri)

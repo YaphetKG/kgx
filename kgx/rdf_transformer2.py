@@ -1,10 +1,10 @@
-import click, rdflib, logging
+import click, rdflib, logging, os
 
 from rdflib import Namespace, URIRef
 from rdflib.namespace import RDF, RDFS, OWL
 
 from .transformer import Transformer
-from .utils.rdf_utils import find_category, category_mapping, property_mapping, make_curie, predicate_mapping
+from .utils.rdf_utils import find_category, category_mapping, property_mapping, make_curie, predicate_mapping, process_iri
 
 from collections import defaultdict
 
@@ -13,12 +13,17 @@ class RdfTransformer(Transformer):
         super().__init__(t)
         self.ontologies = []
 
-    def parse(self, filename:str=None):
+    def parse(self, filename:str=None, provided_by:str=None):
         rdfgraph = rdflib.Graph()
         rdfgraph.parse(filename, format=rdflib.util.guess_format(filename))
+
         logging.info("Parsed : {}".format(filename))
-        self.load_edges(rdfgraph)
-        self.load_nodes(rdfgraph)
+
+        if provided_by is None:
+            provided_by = os.path.basename(filename)
+
+        self.load_edges(rdfgraph, provided_by=provided_by)
+        self.load_nodes(rdfgraph, provided_by=provided_by)
 
     def add_ontology(self, owlfile:str):
         ont = rdflib.Graph()
@@ -26,36 +31,40 @@ class RdfTransformer(Transformer):
         self.ontologies.append(ont)
         logging.info("Parsed : {}".format(owlfile))
 
-    def load_edges(self, rdfgraph:rdflib.Graph):
+    def load_edges(self, rdfgraph:rdflib.Graph, provided_by:str=None):
         pass
 
-    def load_nodes(self, rdfgraph:rdflib.Graph):
+    def load_nodes(self, rdfgraph:rdflib.Graph, provided_by:str=None):
+        """
+        This method loads the properties of nodes in the NetworkX graph. As there
+        can be many values for a single key, all properties are lists by default.
+
+        This method assumes that load_edges has been called, and that all nodes
+        have had their IRI saved as an attribute.
+        """
         with click.progressbar(self.graph.nodes(), label='loading nodes') as bar:
             for node_id in bar:
-                node_attr = defaultdict(set)
-
                 if 'iri' in self.graph.node[node_id]:
                     iri = self.graph.node[node_id]['iri']
                 else:
+                    logging.warning("Expected IRI for {} provided by {}".format(node_id, provided_by))
                     continue
+
+                node_attr = defaultdict(list)
 
                 for s, p, o in rdfgraph.triples((URIRef(iri), None, None)):
                     if p in property_mapping or isinstance(o, rdflib.term.Literal):
-                        p = property_mapping.get(p, make_curie(p))
-                        o = make_curie(o)
+                        p = property_mapping.get(p, process_iri(p))
+                        o = process_iri(o)
+                        node_attr[p].append(o)
 
-                        if p in node_attr:
-                            if isinstance(node_attr[p], set):
-                                node_attr[p].add(o)
-                            else:
-                                node_attr[p] = {node_attr[p], o}
-                        else:
-                            node_attr[p] = o
+                category = find_category(iri, [rdfgraph] + self.ontologies)
 
-                graphs = [rdfgraph] + self.ontologies
-                c = find_category(iri, graphs)
-                if c is not None:
-                    node_attr['category'] = [c]
+                if category is not None:
+                    node_attr['category'].append(category)
+
+                if provided_by is not None:
+                    node_attr['provided_by'].append(provided_by)
 
                 for key, value in node_attr.items():
                     self.graph.node[node_id][key] = value
@@ -63,36 +72,26 @@ class RdfTransformer(Transformer):
 class ObanRdfTransformer(RdfTransformer):
     OBAN = Namespace('http://purl.org/oban/')
 
-    def load_edges(self, rdfgraph:rdflib.Graph):
+    def load_edges(self, rdfgraph:rdflib.Graph, provided_by:str=None):
         associations = list(rdfgraph.subjects(RDF.type, self.OBAN.association))
         with click.progressbar(associations, label='loading edges') as bar:
             for association in bar:
                 edge_attr = defaultdict(list)
 
                 for s, p, o in rdfgraph.triples((association, None, None)):
-                    if p in property_mapping:
-                        p = property_mapping[p]
-                        edge_attr[p].append(str(o))
-                    elif isinstance(o, rdflib.term.Literal):
-                        edge_attr[make_curie(p)].append(str(o))
+                    if p in property_mapping or isinstance(o, rdflib.term.Literal):
+                        p = property_mapping.get(p, process_iri(p))
+                        o = process_iri(o)
+                        node_attr[p].append(o)
 
                 if 'predicate' not in edge_attr:
-                    edge_attr['predicate'] = ['related to']
+                    edge_attr['predicate'].append('related to')
 
-                make_name = lambda p: property_mapping[p] if p in property_mapping else p
-                edge_attr['predicate'] = [make_name(p) for p in edge_attr['predicate']]
+                if provided_by is not None:
+                    edge_attr['provided_by'].append(provided_by)
 
-                subjects = edge_attr['subject']
-                objects = edge_attr['object']
-
-                for key, values in edge_attr.items():
-                    if isinstance(values, (list, str, tuple)):
-                        edge_attr[key] = list(set(make_curie(v) for v in values))
-                    else:
-                        edge_attr[key] = make_curie(values)
-
-                for subject_iri in subjects:
-                    for object_iri in objects:
+                for subject_iri in edge_attr['subject']:
+                    for object_iri in edge_attr['object']:
                         sid = make_curie(subject_iri)
                         oid = make_curie(object_iri)
 
