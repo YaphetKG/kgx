@@ -74,7 +74,7 @@ def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
 def clique_merge(graph:nx.Graph) -> nx.Graph:
     cliques = []
 
-    with click.progressbar(graph.nodes(), 'building cliques') as bar:
+    with click.progressbar(graph.nodes(), label='building cliques') as bar:
         for n in bar:
             clique = Clique()
             clique.add_all(n)
@@ -83,7 +83,7 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
             if 'same_as' in attr_dict:
                 clique.add_all(attr_dict['same_as'])
 
-    with click.progressbar(list(range(len(cliques))), 'reducing cliques') as bar:
+    with click.progressbar(list(range(len(cliques))), label='reducing cliques') as bar:
         for _ in bar:
             popped_clique = cliques.pop(0)
 
@@ -96,7 +96,7 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     mapping = {}
 
-    with click.progressbar(graph.nodes(), 'building mapping') as bar:
+    with click.progressbar(graph.nodes(), label='building mapping') as bar:
         for n in bar:
             for clique in cliques:
                 if n in clique:
