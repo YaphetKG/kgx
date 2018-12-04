@@ -67,8 +67,8 @@ class RdfTransformer(Transformer):
                     node_attr['provided_by'].append(provided_by)
 
                 for k, values in node_attr.items():
-                    if isinstance(values, list):
-                        node_attr[k] = [make_curie(v) for v in values]
+                    if isinstance(values, (list, set, tuple)):
+                        node_attr[make_curie(k)] = [make_curie(v) for v in values]
 
                 for key, value in node_attr.items():
                     self.graph.node[node_id][key] = value
@@ -101,8 +101,8 @@ class ObanRdfTransformer(RdfTransformer):
                 objects = edge_attr['object']
 
                 for k, values in edge_attr.items():
-                    if isinstance(values, list):
-                        edge_attr[k] = [make_curie(v) for v in values]
+                    if isinstance(values, (list, set, tuple)):
+                        edge_attr[make_curie(k)] = [make_curie(v) for v in values]
 
                 for subject_iri in subjects:
                     for object_iri in objects:
