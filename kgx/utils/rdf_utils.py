@@ -17,8 +17,8 @@ def reverse_mapping(d:dict):
 
 predicate_mapping = {
     'http://purl.obolibrary.org/obo/RO_0002200' : 'has phenotype',
-    'http://purl.obolibrary.org/obo/RO_0000091' : 'has disposition'
-    'http://purl.obolibrary.org/obo/RO_0003303' : 'causes condition'
+    'http://purl.obolibrary.org/obo/RO_0000091' : 'has disposition',
+    'http://purl.obolibrary.org/obo/RO_0003303' : 'causes condition',
 }
 
 category_mapping = {
