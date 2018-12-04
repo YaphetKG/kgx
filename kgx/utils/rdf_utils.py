@@ -15,9 +15,16 @@ def reverse_mapping(d:dict):
     """
     return {value : set(k for k, v in d.items() if v == value) for value in d.items()}
 
+predicate_mapping = {
+    'http://purl.obolibrary.org/obo/RO_0002200' : 'has phenotype',
+    'http://purl.obolibrary.org/obo/RO_0000091' : 'has disposition'
+    'http://purl.obolibrary.org/obo/RO_0003303' : 'causes condition'
+}
+
 category_mapping = {
-    # "http://purl.obolibrary.org/obo/SO_0001217" : "protein coding gene", # isa gene
-    # "http://purl.obolibrary.org/obo/GENO_0000002" : "variant allele", #isa sequence feature
+    "http://purl.obolibrary.org/obo/SO_0001217" : "gene",
+    "http://purl.obolibrary.org/obo/GENO_0000002" : "sequence feature",
+    'http://purl.obolibrary.org/obo/UPHENO_0001002' : 'phenotype'
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
     "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity",
@@ -41,7 +48,7 @@ category_mapping = {
     "http://purl.obolibrary.org/obo/CHEBI_23367" : "molecular entity",
     "http://purl.obolibrary.org/obo/CHEBI_23888" : "drug",
     "http://purl.obolibrary.org/obo/CHEBI_51086" : "chemical role",
-    "http://purl.obolibrary.org/obo/UPHENO_0001001" : "Phenotype",
+    "http://purl.obolibrary.org/obo/UPHENO_0001001" : "phenotype",
     "http://purl.obolibrary.org/obo/GO_0008150" : "biological_process",
     "http://purl.obolibrary.org/obo/GO_0005575" : "cellular component",
     "http://purl.obolibrary.org/obo/SO_0000704" : "gene",

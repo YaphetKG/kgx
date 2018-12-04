@@ -4,7 +4,7 @@ from rdflib import Namespace, URIRef
 from rdflib.namespace import RDF, RDFS, OWL
 
 from .transformer import Transformer
-from .utils.rdf_utils import find_category, category_mapping, property_mapping, make_curie
+from .utils.rdf_utils import find_category, category_mapping, property_mapping, make_curie, predicate_mapping
 
 from collections import defaultdict
 
@@ -76,12 +76,17 @@ class ObanRdfTransformer(RdfTransformer):
                     elif isinstance(o, rdflib.term.Literal):
                         edge_attr[make_curie(p)].append(str(o))
 
+                if 'predicate' not in edge_attr:
+                    edge_attr['predicate'] = ['related to']
+                elif edge_attr['predicate'] in predicate_mapping:
+                    edge_attr['predicate'] = predicate_mapping[edge_attr['predicate']]
+
                 subjects = edge_attr['subject']
                 objects = edge_attr['object']
 
                 for key, value in edge_attr.items():
                     if isinstance(value, (list, str, tuple)):
-                        edge_attr[key] = {make_curie(v) for v in value}
+                        edge_attr[key] = list(set(make_curie(v) for v in value))
                     else:
                         edge_attr[key] = make_curie(value)
 
