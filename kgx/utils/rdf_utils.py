@@ -24,7 +24,7 @@ predicate_mapping = {
 category_mapping = {
     "http://purl.obolibrary.org/obo/SO_0001217" : "gene",
     "http://purl.obolibrary.org/obo/GENO_0000002" : "sequence feature",
-    'http://purl.obolibrary.org/obo/UPHENO_0001002' : 'phenotype'
+    'http://purl.obolibrary.org/obo/UPHENO_0001002' : 'phenotype',
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
     "http://purl.obolibrary.org/obo/UBERON_0001062" : "anatomical entity",
