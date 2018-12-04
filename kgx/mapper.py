@@ -72,9 +72,6 @@ def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
     return g
 
 def clique_merge(graph:nx.Graph) -> nx.Graph:
-    if not isinstance(equivalences, list):
-        equivalences = [equivalences]
-
     cliques = []
 
     with click.progressbar(graph.nodes(), 'building cliques') as bar:
