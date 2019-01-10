@@ -72,6 +72,27 @@ def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
     return g
 
 def clique_merge(graph:nx.Graph) -> nx.Graph:
+    cliqueGraph = nx.Graph()
+
+    with click.progressbar(graph.nodes(), label='building cliques') as bar:
+        for n in bar:
+            attr_dict = graph.node[n]
+            if 'same_as' in attr_dict:
+                for m in attr_dict['same_as']:
+                    cliqueGraph.add_edge(n, m)
+
+    mapping = {}
+
+    with click.progressbar(nx.weakly_connected_components(cliqueGraph), label='building mapping') as bar:
+        for component in bar:
+            nodes = list(component)
+            nodes.sort()
+            for n in nodes:
+                mapping[n] = nodes[0]
+
+    return relabel_nodes(graph, mapping)
+
+def clique_merge2(graph:nx.Graph) -> nx.Graph:
     cliques = []
 
     with click.progressbar(graph.nodes(), label='building cliques') as bar:
