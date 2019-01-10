@@ -18,18 +18,6 @@ def map_graph(G, mapping, preserve=True):
                     G[oid][sid][ex].update(source_subject=oid)
     nx.relabel_nodes(G, mapping, copy=False)
 
-class Clique(set):
-    def add_all(self, e):
-        if isinstance(e, (list, set, tuple)):
-            self.update(e)
-        else:
-            self.add(e)
-
-    def get_leader(self):
-        l = list(self)
-        l.sort()
-        return l[0]
-
 def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
     """
     Performs the relabelling of nodes, and ensures that list properties are
@@ -72,6 +60,12 @@ def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
     return g
 
 def clique_merge(graph:nx.Graph) -> nx.Graph:
+    """
+    Builds up cliques using the `same_as` attribute of each node. Uses those
+    cliques to build up a mapping for relabelling nodes. Chooses labels so as
+    to preserve the original nodes, rather than taking xrefs that don't appear
+    as nodes in the graph.
+    """
     cliqueGraph = nx.Graph()
 
     with click.progressbar(graph.nodes(), label='building cliques') as bar:
@@ -83,50 +77,12 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     mapping = {}
 
-    with click.progressbar(nx.weakly_connected_components(cliqueGraph), label='building mapping') as bar:
+    with click.progressbar(list(nx.connected_components(cliqueGraph)), label='building mapping') as bar:
         for component in bar:
-            nodes = list(component)
+            nodes = list(c for c in component if c in graph)
             nodes.sort()
             for n in nodes:
-                mapping[n] = nodes[0]
-
-    return relabel_nodes(graph, mapping)
-
-def clique_merge2(graph:nx.Graph) -> nx.Graph:
-    cliques = []
-
-    with click.progressbar(graph.nodes(), label='building cliques') as bar:
-        for n in bar:
-            clique = Clique()
-
-            clique.add_all(n)
-
-            attr_dict = graph.node[n]
-            if 'same_as' in attr_dict:
-                clique.add_all(attr_dict['same_as'])
-
-            cliques.append(clique)
-
-    with click.progressbar(list(range(len(cliques))), label='reducing cliques') as bar:
-        for _ in bar:
-            popped_clique = cliques.pop(0)
-
-            for clique in cliques:
-                if any(e in clique for e in popped_clique):
-                    clique.add_all(popped_clique)
-                    break
-            else:
-                cliques.append(popped_clique)
-
-    mapping = {}
-
-    with click.progressbar(graph.nodes(), label='building mapping') as bar:
-        for n in bar:
-            for clique in cliques:
-                if n in clique:
-                    mapping[n] = clique.get_leader()
-                    break
-            else:
-                logging.warn('No clique found for {}'.format(n))
+                if n != nodes[0]:
+                    mapping[n] = nodes[0]
 
     return relabel_nodes(graph, mapping)
