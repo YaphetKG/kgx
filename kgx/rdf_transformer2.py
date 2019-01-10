@@ -116,3 +116,34 @@ class ObanRdfTransformer(RdfTransformer):
 
                         self.graph.node[oid]['iri'] = object_iri
                         self.graph.node[oid]['id'] = oid
+
+
+class HgncRdfTransformer(RdfTransformer):
+    def add_node_attribute(self, node:str, key:str, value:str) -> None:
+        if node in self.graph:
+            attr_dict = self.graph.node[node]
+            if key in attr_dict:
+                attr_dict[key].append(value)
+            else:
+                attr_dict[key] = [value]
+        else:
+            self.graph.add_node(node, **{key : [value]})
+
+    def load_edges(self, rdfgraph:rdflib.Graph, provided_by:str=None):
+        for s, p, o in rdfgraph.triples((None, None, None)):
+            s_iri, p, o_iri = str(s), str(p), str(o)
+
+            s = make_curie(s_iri)
+            o = make_curie(o_iri)
+
+            if p == 'http://purl.obolibrary.org/obo/IAO_0000136':
+                self.add_node_attribute(o, 'publications', s_iri)
+                self.graph.node[o]['iri'] = o_iri
+            elif p == 'http://purl.obolibrary.org/obo/RO_0002524':
+                self.graph.add_edge(s, o, predicate='has_subsequence')
+                self.graph.node[s]['iri'] = s_iri
+                self.graph.node[o]['iri'] = o_iri
+            elif p == 'http://purl.obolibrary.org/obo/RO_0002525':
+                self.graph.add_edge(o, s, predicate='has_subsequence')
+                self.graph.node[s]['iri'] = s_iri
+                self.graph.node[o]['iri'] = o_iri
