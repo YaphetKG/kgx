@@ -77,11 +77,14 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
     with click.progressbar(graph.nodes(), label='building cliques') as bar:
         for n in bar:
             clique = Clique()
+
             clique.add_all(n)
 
             attr_dict = graph.node[n]
             if 'same_as' in attr_dict:
                 clique.add_all(attr_dict['same_as'])
+
+            cliques.append(clique)
 
     with click.progressbar(list(range(len(cliques))), label='reducing cliques') as bar:
         for _ in bar:
