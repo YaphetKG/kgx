@@ -4,9 +4,15 @@ from rdflib import Namespace, URIRef
 from rdflib.namespace import RDF, RDFS, OWL
 
 from .transformer import Transformer
-from .utils.rdf_utils import find_category, category_mapping, property_mapping, make_curie, predicate_mapping, process_iri
+from .utils.rdf_utils import find_category, category_mapping, property_mapping, predicate_mapping, process_iri
+from .prefix_manager import PrefixManager
 
 from collections import defaultdict
+
+pm = PrefixManager()
+
+def make_curie(uri:str) -> str:
+    return pm.try_contract(uri)
 
 class RdfTransformer(Transformer):
     def __init__(self, t:Transformer=None):

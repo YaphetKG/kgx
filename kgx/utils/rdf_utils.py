@@ -75,16 +75,6 @@ property_mapping = {
 
 reverse_property_mapping = reverse_mapping(property_mapping)
 
-def make_curie(uri:URIRef) -> str:
-    """
-    We sort the curies to ensure that we take the same item every time
-    """
-    curies = contract_uri(str(uri))
-    curies.sort()
-    if len(curies) > 0:
-        return curies[0]
-    return str(uri)
-
 def process_iri(iri:Union[str, URIRef]) -> str:
     """
     Casts iri to a string, and then checks whether it maps to any pre-defined

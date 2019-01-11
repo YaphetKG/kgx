@@ -13,7 +13,7 @@ class PrefixManager(object):
 
         # if set, this falls back to other prefixmappings
         self.fallback = True
-            
+
         # NOTE: this is cached
         # to clear cache: rm ~/.cachier/.prefixcommons.curie_util.read_remote_jsonld_context
         self.set_prefixmap(cu.read_remote_jsonld_context(url))
@@ -45,3 +45,28 @@ class PrefixManager(object):
             if shortforms == []:
                 return None
         return shortforms[0]
+
+    def try_contract(self, uri):
+        """
+        Tries to contract the given uri, switching out protocols if unsuccessful
+        the first time.
+
+        Returns the original uri if no contraction can be found.
+        """
+        curie = self.contract(uri)
+
+        HTTP = 'http'
+        HTTPS = 'https'
+
+        if curie is None:
+            if uri.startswith(HTTPS):
+                uri = HTTP + uri[len(HTTPS):]
+            elif uri.startswith(HTTP):
+                uri = HTTPS + uri[len(HTTP):]
+
+        curie = self.contract(uri)
+
+        if curie is None:
+            return uri
+        else:
+            return curie
