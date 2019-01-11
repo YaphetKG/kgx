@@ -53,16 +53,18 @@ class PrefixManager(object):
 
         Returns the original uri if no contraction can be found.
         """
-        curie = self.contract(uri)
-
         HTTP = 'http'
         HTTPS = 'https'
 
-        if curie is None:
-            if uri.startswith(HTTPS):
-                uri = HTTP + uri[len(HTTPS):]
-            elif uri.startswith(HTTP):
-                uri = HTTPS + uri[len(HTTP):]
+        curie = self.contract(uri)
+
+        if curie is not None:
+            return curie
+
+        if uri.startswith(HTTPS):
+            uri = HTTP + uri[len(HTTPS):]
+        elif uri.startswith(HTTP):
+            uri = HTTPS + uri[len(HTTP):]
 
         curie = self.contract(uri)
 

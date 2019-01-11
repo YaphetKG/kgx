@@ -75,6 +75,39 @@ property_mapping = {
 
 reverse_property_mapping = reverse_mapping(property_mapping)
 
+cmaps = [{'OMIM' : 'https://omim.org/entry/'}] + default_curie_maps
+
+def contract(uri:URIRef) -> str:
+    """
+    We sort the curies to ensure that we take the same item every time
+    """
+    curies = contract_uri(str(uri), cmaps=cmaps)
+    if len(curies) > 0:
+        curies.sort()
+        return curies[0]
+    return None
+
+def make_curie(uri:URIRef) -> str:
+    HTTP = 'http'
+    HTTPS = 'https'
+
+    curie = contract(uri)
+
+    if curie is not None:
+        return curie
+
+    if uri.startswith(HTTPS):
+        uri = HTTP + uri[len(HTTPS):]
+    elif uri.startswith(HTTP):
+        uri = HTTPS + uri[len(HTTP):]
+
+    curie = contract(uri)
+
+    if curie is None:
+        return uri
+    else:
+        return curie
+
 def process_iri(iri:Union[str, URIRef]) -> str:
     """
     Casts iri to a string, and then checks whether it maps to any pre-defined
