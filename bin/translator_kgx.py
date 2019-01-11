@@ -15,6 +15,8 @@ from neo4j.v1.types import Node, Record
 
 import pandas as pd
 
+from collections import defaultdict
+
 pass_config = click.make_pass_decorator(Config, ensure=True)
 
 def error(msg):
@@ -32,6 +34,62 @@ def cli(config, debug):
     config.debug = debug
     if debug:
         logging.basicConfig(level=logging.DEBUG)
+
+from collections import Counter
+from terminaltables import AsciiTable
+
+@cli.command()
+@click.argument('input', type=click.Path(exists=False), required=True)
+@click.option('--input-type', type=click.Choice(get_file_types()))
+@click.option('-o', '--output')
+def summary(input, output, input_type):
+    """
+    Loads and summarizes a knowledge graph
+    """
+    t = load_transformer([input], input_type)
+
+    def get_prefix(curie:str) -> str:
+        p, _ = curie.rsplit(':', 1)
+        return p
+    
+    g = t.graph
+
+    tuples = []
+    with click.progressbar(g.nodes(), label='Reading knowledge graph') as bar:
+        for n in bar:
+            categories = g.node[n].get('category')
+            curie = g.node[n].get('id')
+            prefix = None
+
+            if ':' in curie:
+                prefix = get_prefix(curie)
+
+            if not isinstance(categories, (list, tuple, set)):
+                categories = [categories]
+
+            for category in categories:
+                tuples.append((prefix, category))
+
+    tuple_count = Counter(tuples)
+
+    headers = [['Prefix', 'Category', 'Frequency']]
+    rows = [[k[0], k[1], v] for k, v in tuple_count.items()]
+    print(AsciiTable(headers + rows).table)
+
+    category_count = defaultdict(lambda: 0)
+    prefix_count = defaultdict(lambda: 0)
+
+    for (prefix, category), frequency in tuple_count.items():
+        category_count[category] += frequency
+        prefix_count[prefix] += frequency
+
+    headers = [['Category', 'Frequency']]
+    rows = [[k, v] for k, v in category_count.items()]
+    print(AsciiTable(headers + rows).table)
+
+    headers = [['Prefixes', 'Frequency']]
+    rows = [[k, v] for k, v in prefix_count.items()]
+    print(AsciiTable(headers + rows).table)
 
 @cli.command(name='node-summary')
 @click.option('-a', '--address', type=str, required=True)
