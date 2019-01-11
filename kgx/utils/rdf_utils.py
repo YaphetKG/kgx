@@ -19,11 +19,12 @@ predicate_mapping = {
     'http://purl.obolibrary.org/obo/RO_0002200' : 'has phenotype',
     'http://purl.obolibrary.org/obo/RO_0000091' : 'has disposition',
     'http://purl.obolibrary.org/obo/RO_0003303' : 'causes condition',
+    'http://purl.obolibrary.org/obo/RO_0002525' : 'is subsequence of',
 }
 
 category_mapping = {
     "http://purl.obolibrary.org/obo/SO_0001217" : "gene",
-    "http://purl.obolibrary.org/obo/GENO_0000002" : "sequence feature",
+    "http://purl.obolibrary.org/obo/GENO_0000002" : "sequence variant",
     'http://purl.obolibrary.org/obo/UPHENO_0001002' : 'phenotype',
 # Taken from the yaml
     "http://purl.obolibrary.org/obo/CL_0000000" : "cell",
@@ -68,7 +69,8 @@ property_mapping = {
     URIRef('http://www.geneontology.org/formats/oboInOwl#hasExactSynonym') : 'synonyms',
     URIRef('http://www.w3.org/2004/02/skos/core#exactMatch') : 'same_as',
     URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref') : 'same_as',
-    OWL.equivalentClass : 'same_as'
+    OWL.equivalentClass : 'same_as',
+    URIRef('http://purl.obolibrary.org/obo/RO_0002162') : 'taxon'
 }
 
 reverse_property_mapping = reverse_mapping(property_mapping)
