@@ -15,7 +15,8 @@ requires = [
     "pyyaml>=0.0",
     "neo4jrestclient",
     "prologterms",
-    "BiolinkMG"
+    "BiolinkMG",
+    'terminaltables',
 ]
 
 setup(

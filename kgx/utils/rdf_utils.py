@@ -129,14 +129,6 @@ def process_iri(iri:Union[str, URIRef]) -> str:
 
 reverse_category_mapping = reverse_mapping(category_mapping)
 
-equals_predicates = [
-    OWL.equivalentClass,
-    URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref'),
-    URIRef('http://www.w3.org/2004/02/skos/core#exactMatch'),
-]
-
-isa_predicates = [RDFS.subClassOf, RDF.type]
-
 def walk(node_iri:URIRef, next_node_generator):
     """
     next_node_generator is a function that takes an iri and returns a generator for iris.
@@ -161,6 +153,9 @@ def walk(node_iri:URIRef, next_node_generator):
             if n not in visited:
                 to_visit[n] = score + s
                 yield n, to_visit[n]
+
+equals_predicates = [k for k, v in property_mapping.items() if v == 'same_as']
+isa_predicates = [RDFS.subClassOf, RDF.type]
 
 def find_category(iri:URIRef, rdfgraphs:List[rdflib.Graph]) -> str:
     """

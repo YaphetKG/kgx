@@ -6,7 +6,6 @@ _transformers = {
     'tsv' : kgx.PandasTransformer,
     'graphml' : kgx.GraphMLTransformer,
     'ttl' : kgx.ObanRdfTransformer,
-    'owl' : kgx.RdfOwlTransformer,
     'json' : kgx.JsonTransformer,
     'rq' : kgx.SparqlTransformer
 }
