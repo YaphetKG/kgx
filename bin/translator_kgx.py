@@ -57,8 +57,13 @@ def node_summary(input, input_type):
     g = t.graph
 
     tuples = []
+    xrefs = set()
     with click.progressbar(g.nodes(), label='Reading knowledge graph') as bar:
         for n in bar:
+            if 'same_as' in g.node[n]:
+                for xref in g.node[n]['same_as']:
+                    xrefs.add(get_prefix(xref))
+
             categories = g.node[n].get('category')
             curie = g.node[n].get('id')
             prefix = None
@@ -71,6 +76,9 @@ def node_summary(input, input_type):
 
             for category in categories:
                 tuples.append((prefix, category))
+
+    if len(xrefs) != 0:
+        print('xref prefixes: {}'.format(', '.join(xrefs)))
 
     tuple_count = Counter(tuples)
 
