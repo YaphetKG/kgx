@@ -169,4 +169,5 @@ class HgncRdfTransformer(RdfTransformer):
                     nxgraph.node[s]['iri'] = s_iri
                     nxgraph.node[o]['iri'] = o_iri
                 elif any(p.lower() == predicate.lower() for predicate in equals_predicates):
-                    self.add_node_attribute(s, None, None)
+                    self.graph.add_node(s)
+                    self.graph.node[s]['iri'] = s_iri
