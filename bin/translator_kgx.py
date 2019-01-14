@@ -38,20 +38,22 @@ def cli(config, debug):
 from collections import Counter
 from terminaltables import AsciiTable
 
-@cli.command()
-@click.argument('input', type=click.Path(exists=False), required=True)
+def get_prefix(curie:str) -> str:
+    if ':' in curie:
+        p, _ = curie.rsplit(':', 1)
+        return p
+    else:
+        return None
+
+@cli.command('node-summary')
+@click.argument('input', type=click.Path(exists=True), required=True)
 @click.option('--input-type', type=click.Choice(get_file_types()))
-@click.option('-o', '--output')
-def summary(input, output, input_type):
+def node_summary(input, input_type):
     """
-    Loads and summarizes a knowledge graph
+    Loads and summarizes a knowledge graph node set
     """
     t = load_transformer([input], input_type)
 
-    def get_prefix(curie:str) -> str:
-        p, _ = curie.rsplit(':', 1)
-        return p
-    
     g = t.graph
 
     tuples = []
@@ -73,7 +75,7 @@ def summary(input, output, input_type):
     tuple_count = Counter(tuples)
 
     headers = [['Prefix', 'Category', 'Frequency']]
-    rows = [[k[0], k[1], v] for k, v in tuple_count.items()]
+    rows = [[*k, v] for k, v in tuple_count.items()]
     print(AsciiTable(headers + rows).table)
 
     category_count = defaultdict(lambda: 0)
@@ -91,13 +93,57 @@ def summary(input, output, input_type):
     rows = [[k, v] for k, v in prefix_count.items()]
     print(AsciiTable(headers + rows).table)
 
-@cli.command(name='node-summary')
+@cli.command('edge-summary')
+@click.argument('input', type=click.Path(exists=True), required=True)
+@click.option('--input-type', type=click.Choice(get_file_types()))
+def edge_summary(input, input_type):
+    """
+    Loads and summarizes a knowledge graph edge set
+    """
+    t = load_transformer([input], input_type)
+
+    g = t.graph
+
+    tuples = []
+    with click.progressbar(g.edges(data=True), label='Reading knowledge graph') as bar:
+        for s, o, edge_attr in bar:
+            subject_attr = g.node[s]
+            object_attr = g.node[o]
+
+            subject_prefix = get_prefix(s)
+            object_prefix = get_prefix(o)
+
+            subject_categories = subject_attr.get('category')
+            object_categories = object_attr.get('category')
+            predicates = edge_attr.get('predicate')
+
+            if not isinstance(subject_categories, (list, set, tuple)):
+                subject_categories = [subject_categories]
+
+            if not isinstance(object_categories, (list, set, tuple)):
+                object_categories = [object_categories]
+
+            if not isinstance(predicates, (list, set, tuple)):
+                predicates = [predicates]
+
+            for subject_category in subject_categories:
+                for object_category in object_categories:
+                    for predicate in predicates:
+                        tuples.append((subject_prefix, subject_category, predicate, object_prefix, object_category))
+
+    tuple_count = Counter(tuples)
+
+    headers = [['Subject Prefix', 'Subject Category', 'Predicate', 'Object Prefix', 'Object Category', 'Frequency']]
+    rows = [[*k, v] for k, v in tuple_count.items()]
+    print(AsciiTable(headers + rows).table)
+
+@cli.command(name='neo4j-node-summary')
 @click.option('-a', '--address', type=str, required=True)
 @click.option('-u', '--username', type=str, required=True)
 @click.option('-p', '--password', type=str, required=True)
 @click.option('-o', '--output', type=click.Path(exists=False))
 @pass_config
-def node_summary(config, address, username, password, output=None):
+def neo4j_node_summary(config, address, username, password, output=None):
     if output is not None and not is_writable(output):
         error(f'Cannot write to {output}')
 
@@ -154,13 +200,13 @@ def node_summary(config, address, username, password, output=None):
         df.to_csv(output, sep='|', header=True)
         click.echo('Saved report to {}'.format(output))
 
-@cli.command(name='edge-summary')
+@cli.command(name='neo4j-edge-summary')
 @click.option('-a', '--address', type=str, required=True)
 @click.option('-u', '--username', type=str, required=True)
 @click.option('-p', '--password', type=str, required=True)
 @click.option('-o', '--output', type=click.Path(exists=False))
 @pass_config
-def edge_summary(config, address, username, password, output=None):
+def neo4j_edge_summary(config, address, username, password, output=None):
     if output is not None and not is_writable(output):
         error(f'Cannot write to {output}')
 
