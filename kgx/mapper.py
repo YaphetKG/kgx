@@ -106,6 +106,10 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     This method will also expand the `same_as` attribute of the clique leader.
     """
+
+    original_size = len(graph)
+    print('original graph has {} nodes'.format(original_size))
+
     cliqueGraph = nx.Graph()
 
     with click.progressbar(graph.nodes(), label='building cliques') as bar:
@@ -117,7 +121,11 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     mapping = {}
 
-    with click.progressbar(list(nx.connected_components(cliqueGraph)), label='building mapping') as bar:
+    connected_components = list(nx.connected_components(cliqueGraph)
+
+    print('Discovered {} cliques'.format(len(connected_components))
+
+    with click.progressbar(connected_components, label='building mapping') as bar:
         for nodes in bar:
             categories = set()
             for n in nodes:
@@ -144,4 +152,10 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
             graph.node[nodes[0]]['same_as'] = nodes
 
-    return relabel_nodes(graph, mapping)
+    g = relabel_nodes(graph, mapping)
+
+    final_size = len(g)
+    print('Resulting graph has {} nodes'.format(final_size))
+    print('Eliminated {} nodes'.format(original_size - final_size))
+
+    return g
