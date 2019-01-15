@@ -17,6 +17,7 @@ requires = [
     "prologterms",
     "BiolinkMG",
     'terminaltables',
+    'bmt',
 ]
 
 setup(

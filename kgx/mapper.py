@@ -1,7 +1,10 @@
-import networkx as nx
-import logging, click
+new_attr_dictimport networkx as nx
+import logging, click, bmt
 
 from collections import defaultdict
+from typing import Union, List
+
+bmt.load('https://biolink.github.io/biolink-model/biolink-model.yaml')
 
 def map_graph(G, mapping, preserve=True):
     if preserve:
@@ -20,7 +23,7 @@ def map_graph(G, mapping, preserve=True):
 
 def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
     """
-    Performs the relabelling of nodes, and ensures that list properties are
+    Performs the relabelling of nodes, and ensures that list attributes are
     copied over.
 
     Example:
@@ -43,21 +46,56 @@ def relabel_nodes(graph:nx.Graph, mapping:dict) -> nx.Graph:
         b {'name': ['B', 'C']}
         d {'name': ['D']}
     """
+    print('relabelling nodes...')
     g = nx.relabel_nodes(graph, mapping, copy=True)
 
-    for n in g.nodes():
-        d = g.node[n]
-        attr = graph.node[n]
+    with click.progressbar(graph.nodes(), label='concatenating list attributes') as bar:
+        for n in bar:
+            if n not in mapping or n == mapping[n]:
+                continue
 
-        for key, value in attr.items():
-            if key in d:
-                if isinstance(d[key], (list, set, tuple)) and isinstance(attr[key], (list, set, tuple)):
-                    s = set(d[key])
-                    s.update(attr[key])
-                    d[key] = list(s)
-            else:
-                d[key] = value
+            new_attr_dict = g.node[mapping[n]]
+            old_attr_dict = graph.node[n]
+
+            for key, value in old_attr_dict.items():
+                if key in new_attr_dict:
+                    is_list = \
+                        isinstance(new_attr_dict[key], (list, set, tuple)) \
+                        and isinstance(old_attr_dict[key], (list, set, tuple))
+                    if is_list:
+                        s = set(new_attr_dict[key])
+                        s.update(old_attr_dict[key])
+                        new_attr_dict[key] = list(s)
+                else:
+                    new_attr_dict[key] = value
     return g
+
+def listify(o:object) -> Union[list, set, tuple]:
+    if isinstance(o, (list, set, tuple)):
+        return o
+    else:
+        return [o]
+
+def get_prefix(curie:str) -> str:
+    if ':' in curie:
+        prefix, _ = curie.rsplit(':', 1)
+        return prefix
+    else:
+        return None
+
+def sort_key(n, list_of_prefixes:List[List[str]]):
+    """
+    For a list of lists of prefixes, gets the lowest
+    index of a matching prefix.
+    """
+    k = len(list_of_prefixes) + 1
+    p = get_prefix(n).upper()
+    for prefixes in list_of_prefixes:
+        for i, prefix in enumerate(prefixes):
+            if p == prefix.upper():
+                if i < k:
+                    k = i
+    return k
 
 def clique_merge(graph:nx.Graph) -> nx.Graph:
     """
@@ -65,6 +103,8 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
     cliques to build up a mapping for relabelling nodes. Chooses labels so as
     to preserve the original nodes, rather than taking xrefs that don't appear
     as nodes in the graph.
+
+    This method will also expand the `same_as` attribute of the clique leader.
     """
     cliqueGraph = nx.Graph()
 
@@ -78,11 +118,30 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
     mapping = {}
 
     with click.progressbar(list(nx.connected_components(cliqueGraph)), label='building mapping') as bar:
-        for component in bar:
-            nodes = list(c for c in component if c in graph)
-            nodes.sort()
+        for nodes in bar:
+            categories = set()
+            for n in nodes:
+                attr_dict = graph.node[n]
+
+                if 'category' in attr_dict:
+                    categories.addAll(listify(attr_dict['category']))
+
+                if 'categories' in attr_dict:
+                    categories.addAll(listify(attr_dict['categories']))
+
+            list_of_prefixes = []
+            for category in categories:
+                try:
+                    list_of_prefixes.append(bmt.get_element(category).id_prefixes)
+                except:
+                    pass
+
+            nodes.sort(key=sort_key(n, list_of_prefixes))
+
             for n in nodes:
                 if n != nodes[0]:
                     mapping[n] = nodes[0]
+
+            graph.node[nodes[0]]['same_as'] = nodes
 
     return relabel_nodes(graph, mapping)
