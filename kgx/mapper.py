@@ -1,4 +1,4 @@
-new_attr_dictimport networkx as nx
+import networkx as nx
 import logging, click, bmt
 
 from collections import defaultdict
@@ -121,9 +121,9 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     mapping = {}
 
-    connected_components = list(nx.connected_components(cliqueGraph)
+    connected_components = list(nx.connected_components(cliqueGraph))
 
-    print('Discovered {} cliques'.format(len(connected_components))
+    print('Discovered {} cliques'.format(len(connected_components)))
 
     with click.progressbar(connected_components, label='building mapping') as bar:
         for nodes in bar:
