@@ -25,12 +25,19 @@ class JsonTransformer(PandasTransformer):
             if 'edges' in obj:
                 self.load_edges(obj['edges'])
 
-    def load_nodes(self, objs):
-        for obj in objs:
-            self.load_node(obj)
-    def load_edges(self, objs):
-        for obj in objs:
-            self.load_edge(obj)
+    def load_nodes(self, nodes):
+        for d in nodes:
+            n = d['id']
+            del d['id']
+            self.graph.add_node(n, **d)
+
+    def load_edges(self, edges):
+        for d in edges:
+            s = d['subject']
+            o = d['object']
+            del d['subject']
+            del d['object']
+            self.graph.add_edge(s, o, **d)
 
     def export(self):
         nodes=[]
@@ -45,10 +52,7 @@ class JsonTransformer(PandasTransformer):
             edge['object'] = o
             edges.append(edge)
 
-        return {
-            'nodes':nodes,
-            'edges':edges,
-            }
+        return {'nodes':nodes, 'edges':edges}
 
     def save(self, filename, **args):
         """
