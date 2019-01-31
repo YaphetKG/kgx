@@ -56,22 +56,34 @@ class PandasTransformer(Transformer):
     #     o = obj['object'] # type: str
     #     self.graph.add_edge(o, s, **obj)
 
+    def serialize(self, l:list) -> str:
+        if isinstance(l, (list, tuple, set)):
+            return ';'.join(l)
+        elif isinstance(l, str):
+            return l
+        else:
+            return str(l)
+
     def export_nodes(self) -> pd.DataFrame:
         items = []
-        for n,data in self.graph.nodes_iter(data=True):
-            item = data.copy()
-            item['id'] = n
-            items.append(item)
+        for n,data in self.graph.nodes(data=True):
+            record = data.copy()
+            for key, value in record.items():
+                record[key] = self.serialize(value)
+            record['id'] = n
+            items.append(record)
         df = pd.DataFrame.from_dict(items)
         return df
 
     def export_edges(self) -> pd.DataFrame:
         items = []
-        for o,s,data in self.graph.edges_iter(data=True):
-            item = data.copy()
-            item['subject'] = s
-            item['object'] = o
-            items.append(item)
+        for o, s, data in self.graph.edges(data=True):
+            record = data.copy()
+            for key, value in record.items():
+                record[key] = self.serialize(value)
+            record['subject'] = s
+            record['object'] = o
+            items.append(record)
         df = pd.DataFrame.from_dict(items)
         cols = df.columns.tolist()
         cols = self.order_cols(cols)
