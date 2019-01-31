@@ -35,21 +35,26 @@ class PandasTransformer(Transformer):
             self.load_nodes(df)
 
     def load_nodes(self, df: pd.DataFrame):
-        for obj in df.to_dict('record'):
-            self.load_node(obj)
-
-    def load_node(self, obj: Dict):
-        id = obj['id'] # type: str
-        self.graph.add_node(id, **obj)
+        for row in df.to_dict('record'):
+            kwargs = {k : str(v).split(';') for k, v in row.items() if k != 'id'}
+            self.graph.add_node(row['id'], **kwargs)
 
     def load_edges(self, df: pd.DataFrame):
-        for obj in df.to_dict('record'):
-            self.load_edge(obj)
+        for row in df.to_dict('record'):
+            s = row['subject']
+            o = row['object']
 
-    def load_edge(self, obj: Dict):
-        s = obj['subject'] # type: str
-        o = obj['object'] # type: str
-        self.graph.add_edge(o, s, **obj)
+            kwargs = {k : str(v).split(';') for k, v in row.items() if k != 'subject' and k != 'object'}
+
+            if 'id' in row:
+                kwargs['id'] = row['id']
+
+            self.graph.add_edge(s, o, **kwargs)
+
+    # def load_edge(self, obj: Dict):
+    #     s = obj['subject'] # type: str
+    #     o = obj['object'] # type: str
+    #     self.graph.add_edge(o, s, **obj)
 
     def serialize(self, l:list) -> str:
         if isinstance(l, (list, tuple, set)):
