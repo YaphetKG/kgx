@@ -77,6 +77,7 @@ def node_summary(input, input_type, frequency):
             for category in categories:
                 tuples.append((prefix, category))
 
+    xrefs = [x for x in xrefs if x is not None]
     if len(xrefs) != 0:
         print('xref prefixes: {}'.format(', '.join(xrefs)))
 
