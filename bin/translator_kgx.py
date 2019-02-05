@@ -94,7 +94,7 @@ def node_summary(input, input_type, frequency):
         prefix_count[prefix] += frequency
 
     headers = [['Category', 'Frequency']]
-    rows = [[k, v] for k, v in category_count.items() if v frequency is None or v >= frequency]
+    rows = [[k, v] for k, v in category_count.items() if v is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
     headers = [['Prefixes', 'Frequency']]
