@@ -48,7 +48,8 @@ def get_prefix(curie:str) -> str:
 @cli.command('node-summary')
 @click.argument('input', type=click.Path(exists=True), required=True)
 @click.option('--input-type', type=click.Choice(get_file_types()))
-def node_summary(input, input_type):
+@click.option('--frequency', '-f', type=int, help='If supplied then ignores all records with lower frequencies than the given')
+def node_summary(input, input_type, frequency):
     """
     Loads and summarizes a knowledge graph node set
     """
@@ -65,11 +66,10 @@ def node_summary(input, input_type):
                     xrefs.add(get_prefix(xref))
 
             categories = g.node[n].get('category')
-            curie = g.node[n].get('id')
             prefix = None
 
-            if ':' in curie:
-                prefix = get_prefix(curie)
+            if ':' in n:
+                prefix = get_prefix(n)
 
             if not isinstance(categories, (list, tuple, set)):
                 categories = [categories]
@@ -83,7 +83,7 @@ def node_summary(input, input_type):
     tuple_count = Counter(tuples)
 
     headers = [['Prefix', 'Category', 'Frequency']]
-    rows = [[*k, v] for k, v in tuple_count.items()]
+    rows = [[*k, v] for k, v in tuple_count.items() if is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
     category_count = defaultdict(lambda: 0)
@@ -94,17 +94,18 @@ def node_summary(input, input_type):
         prefix_count[prefix] += frequency
 
     headers = [['Category', 'Frequency']]
-    rows = [[k, v] for k, v in category_count.items()]
+    rows = [[k, v] for k, v in category_count.items() if frequency is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
     headers = [['Prefixes', 'Frequency']]
-    rows = [[k, v] for k, v in prefix_count.items()]
+    rows = [[k, v] for k, v in prefix_count.items() if is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
 @cli.command('edge-summary')
 @click.argument('input', type=click.Path(exists=True), required=True)
 @click.option('--input-type', type=click.Choice(get_file_types()))
-def edge_summary(input, input_type):
+@click.option('--frequency', '-f', type=int, help='If supplied then ignores all records with lower frequencies than the given')
+def edge_summary(input, input_type, frequency):
     """
     Loads and summarizes a knowledge graph edge set
     """
@@ -142,7 +143,7 @@ def edge_summary(input, input_type):
     tuple_count = Counter(tuples)
 
     headers = [['Subject Prefix', 'Subject Category', 'Predicate', 'Object Prefix', 'Object Category', 'Frequency']]
-    rows = [[*k, v] for k, v in tuple_count.items()]
+    rows = [[*k, v] for k, v in tuple_count.items() if is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
 @cli.command(name='neo4j-node-summary')
