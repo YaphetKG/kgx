@@ -83,7 +83,7 @@ def node_summary(input, input_type, frequency):
     tuple_count = Counter(tuples)
 
     headers = [['Prefix', 'Category', 'Frequency']]
-    rows = [[*k, v] for k, v in tuple_count.items() if v is None or v >= frequency]
+    rows = [[*k, v] for k, v in tuple_count.items() if frequency is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
     category_count = defaultdict(lambda: 0)
@@ -94,11 +94,11 @@ def node_summary(input, input_type, frequency):
         prefix_count[prefix] += frequency
 
     headers = [['Category', 'Frequency']]
-    rows = [[k, v] for k, v in category_count.items() if v is None or v >= frequency]
+    rows = [[k, v] for k, v in category_count.items() if frequency is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
     headers = [['Prefixes', 'Frequency']]
-    rows = [[k, v] for k, v in prefix_count.items() if v is None or v >= frequency]
+    rows = [[k, v] for k, v in prefix_count.items() if frequency is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
 @cli.command('edge-summary')
@@ -143,7 +143,7 @@ def edge_summary(input, input_type, frequency):
     tuple_count = Counter(tuples)
 
     headers = [['Subject Prefix', 'Subject Category', 'Predicate', 'Object Prefix', 'Object Category', 'Frequency']]
-    rows = [[*k, v] for k, v in tuple_count.items() if v is None or v >= frequency]
+    rows = [[*k, v] for k, v in tuple_count.items() if frequency is None or v >= frequency]
     print(AsciiTable(headers + rows).table)
 
 @cli.command(name='neo4j-node-summary')
