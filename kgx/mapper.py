@@ -1,5 +1,5 @@
 import networkx as nx
-import logging, click, bmt
+import logging, click, bmt, pandas
 
 from collections import defaultdict
 from typing import Union, List
@@ -99,7 +99,27 @@ def build_sort_key(list_of_prefixes:List[List[str]]):
         return k
     return key
 
-def clique_merge(graph:nx.Graph) -> nx.Graph:
+class ReportBuilder(object):
+    def __init__(self, graph):
+        self.graph = graph
+        self.records = []
+    def add(node, xref):
+        provided_by = self.graph[node].get('provided_by')
+        name = self.graph[node].get('name')
+        category = self.graph[node].get('category')
+        self.records.add({
+            'node' : node,
+            'xref' : xref,
+            'provided_by' : provided_by,
+            'name' : name,
+            'category' : category
+        })
+
+    def to_csv(path, **kwargs):
+        df = pandas.DataFrame(self.records)
+        df.to_csv(path, **kwargs)
+
+def clique_merge(graph:nx.Graph, report=False) -> nx.Graph:
     """
     Builds up cliques using the `same_as` attribute of each node. Uses those
     cliques to build up a mapping for relabelling nodes. Chooses labels so as
@@ -109,6 +129,8 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
     This method will also expand the `same_as` attribute of the nodes to
     include the discovered clique.
     """
+
+    builder = ReportBuilder(graph)
 
     original_size = len(graph)
     print('original graph has {} nodes'.format(original_size))
@@ -121,6 +143,11 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
             if 'same_as' in attr_dict:
                 for m in attr_dict['same_as']:
                     cliqueGraph.add_edge(n, m)
+                    if report:
+                        builder.add(n, m)
+
+    if report:
+        builder.to_csv('clique-merge-report.csv')
 
     mapping = {}
 
