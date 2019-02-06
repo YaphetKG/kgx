@@ -116,11 +116,47 @@ class ReportBuilder(object):
     def to_csv(self, path, **kwargs):
         df = pandas.DataFrame(self.records)
         df = df[['node', 'xref', 'provided_by']]
-        
+
         if 'index' not in kwargs:
             kwargs['index'] = False
 
         df.to_csv(path, **kwargs)
+
+def update(d:dict, key, value):
+    if key is None or value is None:
+        return
+
+    if isinstance(value, list):
+        for v in value:
+            update(d, key, v)
+
+    if key in d:
+        if isinstance(d, list):
+            if value not in d[key]:
+                d[key].append(value)
+        elif d[key] != value
+            d[key] = [d[key], value]
+    else:
+        d[key] = value
+
+def build_clique_graph(graph:nx.Graph) -> nx.Graph:
+    """
+    Builds a graph induced by `same_as` relationships.
+    """
+
+    cliqueGraph = nx.Graph()
+
+    with click.progressbar(graph.nodes(), label='building cliques') as bar:
+        for n in bar:
+            attr_dict = graph.node[n]
+            if 'same_as' in attr_dict:
+                for m in attr_dict['same_as']:
+                    cliqueGraph.add_edge(n, m, provided_by=attr_dict['provided_by'])
+                    for key, value in graph.node[n].items():
+                        update(cliqueGraph.node[n], key, value)
+                    update(cliqueGraph.node[n], 'is_node', True)
+
+    return cliqueGraph
 
 def clique_merge(graph:nx.Graph, report=True) -> nx.Graph:
     """
