@@ -1,10 +1,24 @@
 from typing import List, Union
 
-import rdflib
+import rdflib, bmt
 from rdflib import Namespace, URIRef
 from rdflib.namespace import RDF, RDFS, OWL
 
 from prefixcommons.curie_util import contract_uri, expand_uri, default_curie_maps
+
+tk = bmt.Toolkit()
+#import pudb; pu.db
+m = tk.generator.mappings
+from pprint import pprint
+x = set()
+mapping = {}
+for key, value in m.items():
+    k = expand_uri(key)
+    v = tk.get_by_mapping(key)
+    if k == key:
+        x.add(key)
+    else:
+        mapping[k] = v
 
 OBAN = Namespace('http://purl.org/oban/')
 
@@ -21,6 +35,7 @@ predicate_mapping = {
     'http://purl.obolibrary.org/obo/RO_0003303' : 'causes condition',
     'http://purl.obolibrary.org/obo/RO_0002525' : 'is subsequence of',
 }
+predicate_mapping.update(mapping)
 
 category_mapping = {
     "http://purl.obolibrary.org/obo/SO_0001217" : "gene",
@@ -56,6 +71,7 @@ category_mapping = {
     "http://purl.obolibrary.org/obo/SO_0000110" : "sequence feature",
     "http://purl.obolibrary.org/obo/GENO_0000536" : "genotype",
 }
+category_mapping.update(mapping)
 
 property_mapping = {
     OBAN.association_has_subject : 'subject',

@@ -76,26 +76,28 @@ def listify(o:object) -> Union[list, set, tuple]:
     else:
         return [o]
 
-def get_prefix(curie:str) -> str:
+def get_prefix(curie:str, default=None) -> str:
     if ':' in curie:
         prefix, _ = curie.rsplit(':', 1)
         return prefix
     else:
-        return None
+        return default
 
-def sort_key(n, list_of_prefixes:List[List[str]]):
+def build_sort_key(list_of_prefixes:List[List[str]]):
     """
     For a list of lists of prefixes, gets the lowest
     index of a matching prefix.
     """
-    k = len(list_of_prefixes) + 1
-    p = get_prefix(n).upper()
-    for prefixes in list_of_prefixes:
-        for i, prefix in enumerate(prefixes):
-            if p == prefix.upper():
-                if i < k:
-                    k = i
-    return k
+    def key(n):
+        k = len(list_of_prefixes) + 1
+        p = get_prefix(n, default='').upper()
+        for prefixes in list_of_prefixes:
+            for i, prefix in enumerate(prefixes):
+                if p == prefix.upper():
+                    if i < k:
+                        k = i
+        return k
+    return key
 
 def clique_merge(graph:nx.Graph) -> nx.Graph:
     """
@@ -104,7 +106,8 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
     to preserve the original nodes, rather than taking xrefs that don't appear
     as nodes in the graph.
 
-    This method will also expand the `same_as` attribute of the clique leader.
+    This method will also expand the `same_as` attribute of the nodes to
+    include the discovered clique.
     """
 
     original_size = len(graph)
@@ -127,15 +130,21 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
 
     with click.progressbar(connected_components, label='building mapping') as bar:
         for nodes in bar:
+            nodes = list(nodes)
             categories = set()
             for n in nodes:
+                if not graph.has_node(n):
+                    continue
+
                 attr_dict = graph.node[n]
 
+                attr_dict['same_as'] = nodes
+
                 if 'category' in attr_dict:
-                    categories.addAll(listify(attr_dict['category']))
+                    categories.update(listify(attr_dict['category']))
 
                 if 'categories' in attr_dict:
-                    categories.addAll(listify(attr_dict['categories']))
+                    categories.update(listify(attr_dict['categories']))
 
             list_of_prefixes = []
             for category in categories:
@@ -144,13 +153,12 @@ def clique_merge(graph:nx.Graph) -> nx.Graph:
                 except:
                     pass
 
-            nodes.sort(key=sort_key(n, list_of_prefixes))
+            nodes.sort()
+            nodes.sort(key=build_sort_key(list_of_prefixes))
 
             for n in nodes:
                 if n != nodes[0]:
                     mapping[n] = nodes[0]
-
-            graph.node[nodes[0]]['same_as'] = nodes
 
     g = relabel_nodes(graph, mapping)
 

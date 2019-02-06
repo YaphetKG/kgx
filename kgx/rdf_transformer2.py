@@ -26,7 +26,6 @@ class RdfTransformer(Transformer, metaclass=ABCMeta):
             provided_by = os.path.basename(filename)
 
         self.load_networkx_graph(rdfgraph, self.graph, provided_by=provided_by)
-
         self.load_node_attributes(rdfgraph, provided_by=provided_by)
 
     def add_ontology(self, owlfile:str):
