@@ -99,7 +99,7 @@ class PandasTransformer(Transformer):
                 cols.remove(c)
         return cols2 + cols
 
-    def save(self, filename: str, extention='csv', zipmode='w', **kwargs):
+    def save(self, filename: str, extention='csv', zipmode='w', node_prefix='_nodes', edge_prefix='_edges', **kwargs):
         """
         Write two CSV/TSV files representing the node set and edge set of a
         graph, and zip them in a .tar file.
@@ -111,6 +111,11 @@ class PandasTransformer(Transformer):
             filename += '.tar'
 
         delimiter = self._extention_types[extention]
+
+        self.export_nodes().to_csv(filename + node_prefix, sep=delimiter, index=False)
+        self.export_edges().to_csv(filename + edge_prefix, sep=delimiter, index=False)
+
+        return filename
 
         nodes_content = self.export_nodes().to_csv(sep=delimiter, index=False)
         edges_content = self.export_edges().to_csv(sep=delimiter, index=False)

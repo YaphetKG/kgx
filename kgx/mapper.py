@@ -103,23 +103,26 @@ class ReportBuilder(object):
     def __init__(self, graph):
         self.graph = graph
         self.records = []
-    def add(node, xref):
-        provided_by = self.graph[node].get('provided_by')
-        name = self.graph[node].get('name')
-        category = self.graph[node].get('category')
-        self.records.add({
+    def add(self, node, xref):
+        provided_by = self.graph.node[node].get('provided_by')
+        if provided_by is not None:
+            provided_by = '; '.join(provided_by)
+        self.records.append({
             'node' : node,
             'xref' : xref,
             'provided_by' : provided_by,
-            'name' : name,
-            'category' : category
         })
 
-    def to_csv(path, **kwargs):
+    def to_csv(self, path, **kwargs):
         df = pandas.DataFrame(self.records)
+        df = df[['node', 'xref', 'provided_by']]
+        
+        if 'index' not in kwargs:
+            kwargs['index'] = False
+
         df.to_csv(path, **kwargs)
 
-def clique_merge(graph:nx.Graph, report=False) -> nx.Graph:
+def clique_merge(graph:nx.Graph, report=True) -> nx.Graph:
     """
     Builds up cliques using the `same_as` attribute of each node. Uses those
     cliques to build up a mapping for relabelling nodes. Chooses labels so as
