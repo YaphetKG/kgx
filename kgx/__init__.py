@@ -14,7 +14,7 @@ from .filter import Filter, FilterLocation, FilterType
 
 from .validator import Validator
 from .prefix_manager import PrefixManager
-from .mapper import map_graph, clique_merge
+from .mapper import map_graph, clique_merge, build_clique_graph
 
 import logging
 

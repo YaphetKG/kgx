@@ -83,8 +83,9 @@ property_mapping = {
     URIRef('http://purl.org/dc/elements/1.1/description') : 'description',
     URIRef('http://purl.obolibrary.org/obo/RO_0002558') : 'has_evidence',
     URIRef('http://www.geneontology.org/formats/oboInOwl#hasExactSynonym') : 'synonyms',
-    URIRef('http://www.w3.org/2004/02/skos/core#exactMatch') : 'same_as',
-    URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref') : 'same_as',
+    #URIRef('http://www.w3.org/2004/02/skos/core#exactMatch') : 'same_as',
+    #URIRef('http://www.geneontology.org/formats/oboInOwl#hasDbXref') : 'same_as',
+    OWL.sameAs : 'same_as',
     OWL.equivalentClass : 'same_as',
     URIRef('http://purl.obolibrary.org/obo/RO_0002162') : 'taxon'
 }
