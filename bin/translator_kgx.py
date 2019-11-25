@@ -1,33 +1,34 @@
-import kgx
-import os, sys, click, logging, itertools, pickle, json, yaml
-import pandas as pd
+import click
+import itertools
+import logging
+import os
+import pickle
+import yaml
+from collections import Counter, defaultdict, OrderedDict
+from datetime import datetime
 from typing import List
 from urllib.parse import urlparse
-from kgx import Transformer, map_graph, Filter, FilterLocation
-from kgx.validator import Validator
-from kgx.cli.error_logging import append_errors_to_file, append_errors_to_files
-
-from kgx.cli.decorators import handle_exception
-from kgx.cli.utils import get_file_types, get_type, get_transformer, is_writable
-
-from kgx.cli.utils import Config
-from kgx.utils import file_write
-
-from neo4j.v1 import GraphDatabase
-from neo4j.v1.types import Node, Record
-
-from collections import Counter, defaultdict, OrderedDict
-from terminaltables import AsciiTable
 
 import pandas as pd
+from neo4j.v1 import GraphDatabase
+from terminaltables import AsciiTable
 
-from datetime import datetime
+import kgx
+from kgx import Transformer, map_graph, FilterLocation
+from kgx import clique_merge
+from kgx.cli.error_logging import append_errors_to_file, append_errors_to_files
+from kgx.cli.utils import Config
+from kgx.cli.utils import get_file_types, get_type, get_transformer, is_writable
+from kgx.utils import file_write
+from kgx.validator import Validator
 
 pass_config = click.make_pass_decorator(Config, ensure=True)
+
 
 def error(msg):
     click.echo(msg)
     quit()
+
 
 @click.group()
 @click.option('--debug', is_flag=True, help='Prints the stack trace if error occurs')
@@ -41,12 +42,14 @@ def cli(config, debug):
     if debug:
         logging.basicConfig(level=logging.DEBUG)
 
+
 def get_prefix(curie:str) -> str:
     if ':' in curie:
         prefix, _ = curie.split(':', 1)
         return prefix
     else:
         return None
+
 
 @cli.command('node-summary')
 @click.argument('filepath', type=click.Path(exists=True), required=True)
@@ -130,6 +133,7 @@ def node_summary(filepath, input_type, max_rows, output):
     else:
         click.echo(AsciiTable(headers + rows).table)
 
+
 def stringify(s):
     if isinstance(s, list):
         if s is not None and len(s) > 1 and 'named thing' in s:
@@ -139,6 +143,7 @@ def stringify(s):
         return "'{}'".format(s)
     else:
         return str(s)
+
 
 @cli.command('edge-summary')
 @click.argument('filepath', type=click.Path(exists=True), required=True)
@@ -179,6 +184,7 @@ def edge_summary(filepath, input_type, max_rows, output):
         file_write(output, AsciiTable(headers + rows).table)
     else:
         click.echo(AsciiTable(headers + rows).table)
+
 
 @cli.command(name='neo4j-node-summary')
 @click.option('-a', '--address', type=str, required=True)
@@ -242,6 +248,7 @@ def neo4j_node_summary(config, address, username, password, output=None):
     else:
         df.to_csv(output, sep='|', header=True)
         click.echo('Saved report to {}'.format(output))
+
 
 @cli.command(name='neo4j-edge-summary')
 @click.option('-a', '--address', type=str, required=True)
@@ -319,6 +326,7 @@ def neo4j_edge_summary(config, address, username, password, output=None):
         df.to_csv(output, sep='|', header=True)
         click.echo('Saved report to {}'.format(output))
 
+
 @cli.command()
 @click.argument('path', type=click.Path(exists=True))
 @click.option('--output', '-o', type=click.Path(exists=False), required=True, help='The path to a text file to append the output to.')
@@ -342,12 +350,14 @@ def validate(config, path, output, output_dir):
             append_errors_to_files(output_dir, validator.errors, time)
 
 from neo4jrestclient.client import GraphDatabase as http_gdb
-import networkx as nx
+
 
 @cli.command(name='neo4j-download')
 # @click.option('-d', '--directed', is_flag=True, help='Enforces subject -> object edge direction')
-# @click.option('-lb', '--labels', type=(click.Choice(FilterLocation.values()), str), multiple=True, help='For filtering on labels. CHOICE: {}'.format(', '.join(FilterLocation.values())))
-# @click.option('-pr', '--properties', type=(click.Choice(FilterLocation.values()), str, str), multiple=True, help='For filtering on properties (key value pairs). CHOICE: {}'.format(', '.join(FilterLocation.values())))
+# @click.option('-lb', '--labels', type=(click.Choice(FilterLocation.values()), str), \
+# multiple=True, help='For filtering on labels. CHOICE: {}'.format(', '.join(FilterLocation.values())))
+# @click.option('-pr', '--properties', type=(click.Choice(FilterLocation.values()), str, str), multiple=True, \
+# help='For filtering on properties (key value pairs). CHOICE: {}'.format(', '.join(FilterLocation.values())))
 @click.option('-a', '--address', type=str, required=True)
 @click.option('-u', '--username', type=str)
 @click.option('-p', '--password', type=str)
@@ -361,7 +371,12 @@ import networkx as nx
 @click.option('-o', '--output', type=click.Path(exists=False), required=True)
 @click.option('--output-type', type=click.Choice(get_file_types()))
 @pass_config
-def neo4j_download(config, page_size, stop_after, subject_label, object_label, edge_type, address, username, password, output, output_type):
+def neo4j_download(
+        config, page_size, stop_after,
+        subject_label, object_label, edge_type,
+        address, username, password,
+        output, output_type
+):
     if not is_writable(output):
         try:
             with open(output, 'w+') as f:
@@ -436,11 +451,10 @@ def neo4j_download(config, page_size, stop_after, subject_label, object_label, e
 
     output_transformer.save(output)
 
-
-
     # t.load(is_directed=directed, start=start, end=end)
     # t.report()
     # transform_and_save(t, output, output_type)
+
 
 def set_transformer_filters(transformer:Transformer, labels:list, properties:list) -> None:
     for location, label in labels:
@@ -454,6 +468,7 @@ def set_transformer_filters(transformer:Transformer, labels:list, properties:lis
     for location, property_name, property_value in properties:
         target = '{}_property'.format(location)
         transformer.set_filter(target=target, value=(property_name, property_value))
+
 
 def make_neo4j_transformer(address, username, password):
     o = urlparse(address)
@@ -475,6 +490,7 @@ def make_neo4j_transformer(address, username, password):
         password=password
     )
 
+
 @cli.command(name='neo4j-upload')
 @click.option('--input-type', type=click.Choice(get_file_types()))
 @click.option('--use-unwind', is_flag=True, help='Loads using UNWIND, which is quicker')
@@ -493,6 +509,7 @@ def neo4j_upload(config, address, username, password, inputs, input_type, use_un
         neo_transformer.save_with_unwind()
     else:
         neo_transformer.save()
+
 
 @cli.command()
 @click.option('--input-type', type=click.Choice(get_file_types()))
@@ -518,6 +535,7 @@ def dump(config, inputs, output, input_type, output_type, mapping, preserve):
             map_graph(G=t.graph, mapping=d, preserve=preserve)
     transform_and_save(t, output, output_type)
 
+
 @cli.command(name='load-mapping')
 @click.argument('name', type=str)
 @click.argument('csv', type=click.Path())
@@ -541,7 +559,6 @@ def load_mapping(config, name, csv, columns, no_header, show):
         pickle.dump(d, f)
         click.echo('Mapping \'{name}\' saved at {path}'.format(name=name, path=path))
 
-from kgx import clique_merge
 
 @cli.command()
 @click.option('--inputs', '-i', required=True, type=click.Path(exists=True), multiple=True)
@@ -570,6 +587,7 @@ def merge(inputs, output):
     output_transformer.graph = graph
     output_transformer.graph = clique_merge(output_transformer.graph)
     output_transformer.save(output)
+
 
 @cli.command(name='load-and-merge')
 @click.argument('merge_config', type=str)
@@ -614,6 +632,7 @@ def load_and_merge(merge_config, destination_uri, destination_username, destinat
         destination = kgx.NeoTransformer(mergedTransformer.graph, uri=destination_uri, username=destination_username, password=destination_password)
         destination.save_with_unwind()
 
+
 def get_file_path(name:str) -> str:
     app_dir = click.get_app_dir(__name__)
 
@@ -621,6 +640,7 @@ def get_file_path(name:str) -> str:
         os.makedirs(app_dir)
 
     return os.path.join(app_dir, name + '.pkl')
+
 
 def transform_and_save(t:Transformer, output_path:str, output_type:str=None):
     """
@@ -649,6 +669,7 @@ def transform_and_save(t:Transformer, output_path:str, output_type:str=None):
     else:
         error("Could not create file.")
 
+
 def build_transformer(path:str, input_type:str=None) -> Transformer:
     if input_type is None:
         input_type = get_type(path)
@@ -656,6 +677,7 @@ def build_transformer(path:str, input_type:str=None) -> Transformer:
     if constructor is None:
         error('File does not have a recognized type: ' + str(get_file_types()))
     return constructor()
+
 
 def load_transformer(input_paths:List[str], input_type:str=None) -> Transformer:
     """
